@@ -1,0 +1,2306 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Regatta-Computer Prototyp v4</title>
+
+<!-- PWA / Homescreen -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#071822">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SegelComp">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --bg: #071822;
+  --panel: #0E2530;
+  --panel-2: #123040;
+  --line: #1D3D4C;
+  --text: #EAF3F2;
+  --dim: #6F98A3;
+  --amber: #FFB703;
+  --red: #E63946;
+  --green: #1DB954;
+  --orange: #F4A300;
+  --blue: #3A86FF;
+  --purple: #8338EC;
+  --ink: #14202A;
+}
+
+/* ---------- Anzeige-Modi (Dark/Hell/Nacht-Rot) ---------- */
+:root[data-theme="hell"]{
+  --bg: #EEF3F4;
+  --panel: #FFFFFF;
+  --panel-2: #E4ECEE;
+  --line: #CFDBDE;
+  --text: #12262E;
+  --dim: #5B7580;
+}
+:root[data-theme="nacht"]{
+  --bg: #0A0000;
+  --panel: #180000;
+  --panel-2: #220000;
+  --line: #3B0000;
+  --text: #FF6B6B;
+  --dim: #A83333;
+  --amber: #FF3B3B;
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  overscroll-behavior: none;
+  user-select: none;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+#app{
+  max-width: 460px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
+}
+
+/* ---------- Header ---------- */
+header{
+  padding: 14px 16px 10px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom: 1px solid var(--line);
+}
+.brand{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 15px; }
+.brand span{color: var(--dim); font-weight:500;}
+.status-dots{display:flex; gap:10px; align-items:center;}
+.dot{width:8px; height:8px; border-radius:50%; background:var(--line);}
+.dot.live{background: var(--green); box-shadow: 0 0 6px var(--green);}
+.dot.warn{background: var(--orange);}
+.status-label{font-size:11px; color:var(--dim); display:flex; align-items:center; gap:5px;}
+
+/* ---------- Chip rows (profile / wind strength / filter) ---------- */
+.chip-row{
+  display:flex; gap:8px; padding: 9px 16px; overflow-x:auto;
+  border-bottom: 1px solid var(--line);
+  align-items:center;
+}
+.chip-row .row-label{ font-size:10px; color:var(--dim); font-weight:600; flex:0 0 auto; padding-right:2px;}
+.chip{
+  flex:0 0 auto; padding: 6px 12px; border-radius: 18px;
+  background: var(--panel); border: 1px solid var(--line);
+  color: var(--dim); font-size: 12.5px; font-weight:600; white-space:nowrap;
+}
+.chip.active{ background: var(--amber); color: var(--ink); border-color: var(--amber); }
+
+/* ---------- Einklappbares Einstellungen-Panel ---------- */
+.settings-toggle{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 11px 16px; border-bottom: 1px solid var(--line);
+  font-size:12.5px; font-weight:700; color: var(--text);
+  min-height:48px;
+}
+.settings-toggle-icon{
+  color: var(--dim); font-size:1.9rem; line-height:1; transition: transform 0.25s ease;
+  display:flex; align-items:center; justify-content:center;
+  min-width:48px; min-height:48px; padding:4px;
+  margin: -4px -10px -4px 4px; /* vergrößert die Touch-Fläche, ohne die Zeile zu sprengen */
+}
+.settings-toggle-icon.open{ transform: rotate(180deg); }
+.settings-panel{ max-height:1000px; overflow:hidden; transition: max-height 0.3s ease; }
+.settings-panel.collapsed{ max-height:0; }
+
+/* ---------- Bootsklasse als kompakter Reiter (Select statt Chip-Reihe) ---------- */
+.select-row{ display:flex; align-items:center; gap:10px; padding: 9px 16px; border-bottom: 1px solid var(--line); }
+.select-row .row-label{ font-size:10px; color:var(--dim); font-weight:600; flex:0 0 auto; }
+.boat-select{
+  flex:1; appearance:none; -webkit-appearance:none;
+  background: var(--panel) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="%236F98A3"/></svg>') no-repeat right 12px center;
+  border: 1px solid var(--line); color: var(--text); font-weight:700; font-size: 13.5px;
+  padding: 8px 30px 8px 12px; border-radius: 12px;
+}
+
+/* ---------- Main display ---------- */
+main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+.view{display:none;}
+.view.active{display:flex; flex-direction:column; gap:12px; flex:1;}
+
+.panel{ background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.panel-label{ font-size: 11px; color: var(--dim); font-weight:600; margin-bottom: 4px; }
+.panel-hint{ font-size:12px; color:var(--dim); line-height:1.4; margin-top:4px; }
+
+/* Timer view */
+.timer-face{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  border-radius: 20px; padding: 24px 10px; transition: background 0.3s ease;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.timer-face.flash{ background: var(--red); }
+.timer-num{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 72px; line-height:1; letter-spacing:-1px; font-variant-numeric: tabular-nums; }
+.timer-sub{ color: var(--dim); font-size:13px; margin-top:8px;}
+.preset-row{ display:flex; gap:8px; }
+.preset-btn{ flex:1; padding: 11px 0; text-align:center; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--text); font-weight:600; font-size:14px; }
+.data-row{ display:flex; gap:10px; }
+.data-card{ flex:1; }
+.data-val{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 24px; }
+.data-unit{ font-size:12px; color:var(--dim); }
+
+/* Wind view */
+.wind-zone{
+  position:relative;
+  flex:1; border-radius:20px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding: 24px 14px; transition: background 0.35s ease; text-align:center;
+}
+.arrow-legend{
+  align-self:flex-start; text-align:left;
+  background: rgba(0,0,0,0.2); border-radius:8px; padding:5px 8px;
+  font-size:10.5px; line-height:1.5; color:#fff;
+  margin-bottom:10px;
+}
+.arrow-legend .row{ display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.arrow-legend .sw{ width:8px; height:8px; border-radius:2px; display:inline-block; flex:0 0 auto; }
+.arrow-legend .sw.blue{ background: var(--blue); }
+.arrow-legend .sw.amber{ background: var(--amber); }
+.zone-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 22px; margin-bottom: 4px; }
+.zone-sub{ font-size:12.5px; opacity:0.85; }
+.twa-num{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 48px; margin: 10px 0 2px 0; }
+.compass-dial-svg-big{ width:180px; height:180px; margin: 10px 0; }
+.corner-row{ display:flex; justify-content:space-between; align-items:center; width:100%; padding: 0 6px; }
+.corner-item{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 30px; color:#fff; }
+.corner-item .corner-unit{ font-size:13px; font-weight:600; margin-left:3px; opacity:0.85; }
+
+/* ---------- Vollbild-Anzeige (Doppel-Tap aufs Farbfeld) ---------- */
+.wind-zone.zone-fullscreen{ width:100vw; height:100vh; padding: 24px; }
+.wind-zone.zone-fullscreen .zone-title{ font-size: 32px; }
+.wind-zone.zone-fullscreen .twa-num{ font-size: 110px; margin: 16px 0 4px 0; }
+.wind-zone.zone-fullscreen .compass-dial-svg-big{ width: 260px; height:260px; }
+.wind-zone.zone-fullscreen .corner-item{ font-size: 44px; }
+.wind-zone.zone-fullscreen .zone-sub{ font-size: 15px; }
+.wind-zone.zone-fullscreen .arrow-legend{ font-size: 13px; }
+
+/* Taktik view */
+.big-metric{ display:flex; align-items:baseline; justify-content:space-between; }
+.big-metric .data-val{ font-size: 30px; }
+.lift-flag{ padding: 10px 12px; border-radius: 10px; font-weight:700; font-size: 13.5px; text-align:center; }
+
+/* Start view */
+.bias-face{
+  border-radius:18px; padding: 20px 16px; text-align:center;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.bias-num{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 40px; }
+.bias-label{ font-size:13px; color:var(--dim); margin-top:4px; }
+.step-badge{
+  display:inline-block; padding:3px 9px; border-radius:10px; font-size:11px;
+  font-weight:700; background: var(--panel-2); color: var(--amber); margin-bottom:8px;
+}
+
+/* Log view */
+.log-list{ max-height: 180px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+.log-item{ font-size:12.5px; color: var(--dim); display:flex; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:5px; }
+.log-item b{ color: var(--text); }
+.export-btn{ padding: 13px 0; text-align:center; border-radius:12px; font-weight:700; font-size:14px; background: var(--panel-2); border:1px solid var(--line); }
+
+/* ---------- Bottom nav / controls ---------- */
+.tabbar{ display:flex; border-top: 1px solid var(--line); }
+.tab{ flex:1; padding: 9px 0 6px 0; text-align:center; color: var(--dim); font-size: 10px; font-weight:600; }
+.tab.active{ color: var(--amber); }
+.tab-icon{ font-size:16px; display:block; margin-bottom:2px; }
+
+.controls{ display:flex; gap:10px; padding: 10px 16px 14px 16px; }
+.ctrl-btn{ flex:1; padding: 15px 0; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-weight:700; font-size: 13.5px; text-align:center; }
+.ctrl-btn.primary{ background: var(--amber); color: var(--ink); border-color: var(--amber); }
+.ctrl-btn:active{ filter: brightness(0.85); }
+
+/* Manuelle Windeingabe: Bestätigen / Ping-Korrektur */
+.manual-actions{ display:flex; gap:8px; margin-top:10px; }
+.ctrl-btn.small{ padding: 10px 0; font-size:12.5px; border-radius:10px; }
+.ctrl-btn.small.confirm{ background: var(--green); color: var(--ink); border-color: var(--green); flex:1; }
+.ctrl-btn.small.ghost{ background: var(--panel); color: var(--text); flex:1; }
+#manualStatus{ margin-top:8px; }
+
+/* Sensor gate */
+.gate{ position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 30px; text-align:center; gap:16px; z-index:50; }
+.gate h1{ font-family:'Space Grotesk',sans-serif; font-size:20px; margin:0; }
+.gate p{ color:var(--dim); font-size:14px; line-height:1.5; max-width:320px; margin:0;}
+.gate button{ padding: 14px 28px; border-radius:12px; border:none; background: var(--amber); color:var(--ink); font-weight:700; font-size:15px; }
+.gate .skip{ background:none; color:var(--dim); font-weight:500; font-size:13px; text-decoration:underline; }
+/* Leaflet ("Echtkarte") ans App-Theme angleichen */
+.llTooltip{ background: var(--panel); color: var(--text); border: 1px solid var(--line); font: 700 11px 'Inter', sans-serif; padding:2px 6px; box-shadow:none; }
+.llTooltip::before{ border-right-color: var(--panel) !important; }
+.leaflet-control-attribution{ background: rgba(7,24,34,0.65) !important; color: var(--dim) !important; font-size:9.5px !important; }
+.leaflet-control-attribution a{ color: var(--dim) !important; }
+#leafletMap{ background: var(--panel-2); }
+</style>
+</head>
+<!-- Leaflet: nur für den optionalen "Echtkarte"-Modus (OpenStreetMap-Kacheln, braucht Internet).
+     Ohne Verbindung schlägt das Laden einfach fehl und die App bleibt beim
+     eigenen, komplett offline funktionierenden Kartenmodus. -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" crossorigin="">
+<body>
+
+<div id="gate" class="gate">
+  <h1>⛵ Regatta-Computer</h1>
+  <p>Für echte SOG/COG/Position braucht der Prototyp Zugriff auf GPS und Kompass deines Handys. Ohne Freigabe läuft er im simulierten Demo-Modus.</p>
+  <button id="grantBtn">Sensoren aktivieren</button>
+  <div class="skip" id="skipBtn">Ohne Sensoren fortfahren (Demo)</div>
+</div>
+
+<div id="app">
+
+  <header>
+    <div class="brand">SEGEL<span>COMP · Proto v4</span></div>
+    <div class="status-dots">
+      <div class="status-label" id="gpsToggle" style="cursor:pointer;"><div class="dot" id="gpsDot"></div><span id="gpsToggleLabel">GPS</span></div>
+      <div class="status-label"><div class="dot" id="cmpDot"></div>CMP</div>
+      <div class="status-label" id="wakeToggle" style="cursor:pointer;"><div class="dot" id="wakeDot"></div><span>Display</span></div>
+    </div>
+  </header>
+  <div id="secureWarning" style="display:none; background:var(--red); color:#fff; font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
+    Unsichere Verbindung (kein https) – Browser blockiert GPS/Kompass. Display-wach-halten &amp; Vollbild funktionieren evtl. auch nicht. Demo-Daten aktiv.
+  </div>
+  <div id="sensorWarning" style="display:none; background:var(--orange); color:var(--ink); font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
+    Keine echten Sensordaten empfangen – Demo-Daten aktiv, bis GPS/Kompass antworten.
+  </div>
+
+  <div class="settings-toggle" id="settingsToggle">
+    <span>⚙️ Einstellungen</span>
+    <span class="settings-toggle-icon" id="settingsToggleIcon">▾</span>
+  </div>
+  <div class="settings-panel" id="settingsPanel">
+    <div class="select-row" id="profileRow">
+      <span class="row-label">BOOTSKLASSE</span>
+      <select class="boat-select" id="profileSelect"></select>
+    </div>
+    <div class="chip-row">
+      <span class="row-label">QUELLE</span>
+      <div class="chip active" data-src="ping">Pingen</div>
+      <div class="chip" data-src="live">Internet</div>
+      <div class="chip" data-src="manual">Manuell</div>
+      <span class="row-label" style="margin-left:6px;">FILTER</span>
+      <div class="chip" data-filt="1">1s</div>
+      <div class="chip active" data-filt="2">2s</div>
+      <div class="chip" data-filt="3">3s</div>
+    </div>
+    <div class="chip-row" id="strengthRow">
+      <span class="row-label">WIND</span>
+      <div class="chip active" data-str="leicht">Leicht</div>
+      <div class="chip" data-str="mittel">Mittel</div>
+      <div class="chip" data-str="stark">Stark</div>
+    </div>
+    <div class="chip-row" id="themeRow">
+      <span class="row-label">ANZEIGE</span>
+      <div class="chip active" data-theme="dunkel">Dunkel</div>
+      <div class="chip" data-theme="hell">Hell</div>
+      <div class="chip" data-theme="nacht">Nacht (Rot)</div>
+    </div>
+    <div class="chip-row" id="mountRow">
+      <span class="row-label">MONTAGE</span>
+      <div class="chip active" data-mount="boot">Am Boot fest</div>
+      <div class="chip" data-mount="arm">Am Arm</div>
+    </div>
+    <div class="chip-row" id="signalRow">
+      <span class="row-label">SIGNALE</span>
+      <div class="chip active" id="vibChip">📳 Vibration</div>
+      <div class="chip active" id="audioChip">🔊 Ton</div>
+    </div>
+  </div>
+  <div id="mountWarning" style="display:none; background:var(--orange); color:var(--ink); font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
+    Handy am Arm: Der Magnet-Kompass dreht sich mit deinem Arm und wäre unbrauchbar. Kompassrose, Wind-Zone &amp; Kurs nutzen stattdessen den GPS-Kurs (COG) – braucht etwas Fahrt, ist bei &lt;1 kn ungenau.
+  </div>
+  <div id="liveStatus" class="panel-hint" style="display:none; padding: 6px 16px; border-bottom:1px solid var(--line);"></div>
+  <div id="manualWindPanel" style="display:none; padding: 10px 16px; border-bottom:1px solid var(--line);">
+    <div class="data-row">
+      <div class="data-card">
+        <div class="panel-label">Windrichtung (° · aus)</div>
+        <input type="number" id="manualDirInput" min="0" max="359" step="1" placeholder="z. B. 225"
+          style="width:100%; padding:9px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:15px;">
+      </div>
+      <div class="data-card">
+        <div class="panel-label">Windstärke (kn)</div>
+        <input type="number" id="manualSpeedInput" min="0" max="60" step="0.5" placeholder="z. B. 14"
+          style="width:100%; padding:9px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:15px;">
+      </div>
+    </div>
+    <div class="manual-actions">
+      <div class="ctrl-btn small confirm" id="manualConfirmBtn">✓ Bestätigen</div>
+      <div class="ctrl-btn small ghost" id="manualPingCorrectBtn">📍 Mit Ping korrigieren</div>
+    </div>
+    <div class="panel-hint" id="manualStatus">Werte eingeben und mit „Bestätigen" übernehmen.</div>
+  </div>
+
+  <main>
+
+    <!-- TIMER VIEW -->
+    <div class="view active" id="view-timer">
+      <div class="timer-face" id="timerFace">
+        <div class="timer-num" id="timerNum">05:00</div>
+        <div class="timer-sub" id="timerSub">Bereit</div>
+      </div>
+      <div class="preset-row">
+        <div class="preset-btn" data-min="5">5 Min</div>
+        <div class="preset-btn" data-min="4">4 Min</div>
+        <div class="preset-btn" data-min="1">1 Min</div>
+      </div>
+      <div class="data-row">
+        <div class="panel data-card">
+          <div class="panel-label">SOG (gefiltert)</div>
+          <span class="data-val" id="sogVal">–</span><span class="data-unit"> kn</span>
+        </div>
+        <div class="panel data-card">
+          <div class="panel-label">COG (gefiltert)</div>
+          <span class="data-val" id="cogVal">–</span><span class="data-unit"> °</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- WIND / TRIMM VIEW -->
+    <div class="view" id="view-wind">
+      <div class="wind-zone" id="windZone">
+        <div class="zone-title" id="zoneTitle">Kein Wind gepingt</div>
+        <div class="zone-sub" id="zoneSub">1× pingen = einfache Referenz · 2× (Bug wechseln) = gemittelte Referenz</div>
+        <div class="arrow-legend">
+          <div class="row"><span class="sw blue"></span>W = Wahr</div>
+          <div class="row"><span class="sw amber"></span>S = Scheinbar</div>
+        </div>
+        <svg class="compass-dial-svg-big" viewBox="-26 -26 152 152">
+          <circle cx="50" cy="50" r="46" fill="rgba(0,0,0,0.22)" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+          <g id="compassRing" transform="rotate(0 50 50)"></g>
+          <g id="boatMarker">
+            <polygon points="50,22 53,32 50,29 47,32" fill="rgba(255,255,255,0.65)"/>
+          </g>
+          <g id="trueArrow" transform="rotate(0 50 50)">
+            <polygon points="50,10 55,50 50,42 45,50" fill="var(--blue)"/>
+          </g>
+          <g id="appArrow" transform="rotate(0 50 50)">
+            <polygon points="50,20 53,50 50,44 47,50" fill="var(--amber)"/>
+          </g>
+        </svg>
+        <div class="corner-row">
+          <div class="corner-item">
+            <span id="speedBadgeVal">–</span><span class="corner-unit">kn</span>
+          </div>
+          <div class="corner-item">
+            <span id="twaNum">–°</span>
+          </div>
+        </div>
+        <div class="zone-sub">TWA · Soll <span id="twaSoll">–°</span></div>
+      </div>
+      <div class="data-row">
+        <div class="panel data-card">
+          <div class="panel-label">Referenzwind</div>
+          <span class="data-val" id="windRefVal">–</span><span class="data-unit"> °</span>
+        </div>
+        <div class="panel data-card">
+          <div class="panel-label" id="hdgLabel">Kompass</div>
+          <span class="data-val" id="hdgVal">–</span><span class="data-unit"> °</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAKTIK VIEW -->
+    <div class="view" id="view-tactic">
+      <div class="panel">
+        <div class="panel-label">Winddreher</div>
+        <div class="big-metric"><span class="data-val" id="shiftVal">NEUTRAL</span></div>
+        <div class="lift-flag" id="shiftFlag" style="margin-top:10px; background:var(--line); color:var(--dim);">Referenz noch nicht gesetzt</div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">VMG</div>
+        <div class="big-metric"><span class="data-val" id="vmgVal">–</span><span class="data-unit"> kn</span></div>
+      </div>
+      <div class="data-row">
+        <div class="panel data-card"><div class="panel-label">Wenden</div><span class="data-val" id="tackCount">0</span></div>
+        <div class="panel data-card"><div class="panel-label">Halsen</div><span class="data-val" id="gybeCount">0</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Layline zur Luvtonne</div>
+        <div class="lift-flag" id="laylineFlag" style="background:var(--line); color:var(--dim);">Luvtonne noch nicht gepingt</div>
+        <div class="panel-hint" id="markDist"></div>
+        <div class="ctrl-btn small ghost" id="clearMarkBtn" style="color:var(--red,#E63946); margin-top:8px;">🟡 Luvtonne löschen</div>
+      </div>
+    </div>
+
+    <!-- START VIEW -->
+    <div class="view" id="view-start">
+      <div class="bias-face">
+        <div class="step-badge" id="startStep">Schritt 1: Boot-Ende pingen</div>
+        <div class="bias-num" id="biasNum">–</div>
+        <div class="bias-label" id="biasLabel">Linie noch nicht gesetzt</div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Distanz zur Linie</div>
+        <div class="big-metric"><span class="data-val" id="lineDist">–</span><span class="data-unit"> m</span></div>
+        <div class="panel-hint">Nur sinnvoll, wenn Boot &amp; Pin gepingt sind – am besten in der letzten Minute vor dem Start beobachten.</div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Einzelne Linienpunkte neu pingen oder löschen</div>
+        <div class="manual-actions">
+          <div class="ctrl-btn small ghost" id="pingBoatBtn">⛵ Boot-Ende neu pingen</div>
+          <div class="ctrl-btn small ghost" id="pingPinBtn">🚩 Pin-Ende neu pingen</div>
+        </div>
+        <div class="manual-actions" style="margin-top:8px;">
+          <div class="ctrl-btn small ghost" id="clearBoatBtn" style="color:var(--red,#E63946);">⛵ Boot-Ende löschen</div>
+          <div class="ctrl-btn small ghost" id="clearPinBtn" style="color:var(--red,#E63946);">🚩 Pin-Ende löschen</div>
+        </div>
+        <div class="panel-hint">Praktisch, wenn das Startschiff liegen bleibt und sich nur die Pin-Tonne verschoben hat (oder umgekehrt) – „neu pingen" aktualisiert nur den jeweiligen Punkt, „löschen" entfernt ihn ohne Ersatz.</div>
+      </div>
+    </div>
+
+    <!-- KARTE VIEW -->
+    <div class="view" id="view-map">
+      <div class="panel" id="mapPanel" style="padding:0; overflow:hidden; flex:1; display:flex; flex-direction:column; min-height:260px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--line); gap:8px; flex-wrap:wrap;">
+          <span class="panel-label" style="margin:0;" id="mapModeLabel">Kurskarte</span>
+          <div style="display:flex; gap:6px;">
+            <div class="chip active" id="realMapChip" style="padding:5px 10px;">🌐 Echtkarte</div>
+            <div class="chip active" id="windArrowsChip" style="padding:5px 10px;">💨 Wind</div>
+          </div>
+        </div>
+        <div id="mapStage" style="position:relative; flex:1; width:100%; overflow:hidden;">
+          <div id="leafletMap" style="position:absolute; inset:0; display:none;"></div>
+          <canvas id="mapCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:block;"></canvas>
+          <canvas id="windOverlayCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:none; pointer-events:none;"></canvas>
+          <div id="mapZoomCtrls" style="position:absolute; right:8px; bottom:8px; display:flex; flex-direction:column; gap:6px; z-index:500;">
+            <div class="ctrl-btn small ghost" id="mapZoomIn" style="flex:none; padding:8px 12px; background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3);">+</div>
+            <div class="ctrl-btn small ghost" id="mapZoomOut" style="flex:none; padding:8px 12px; background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3);">–</div>
+            <div class="ctrl-btn small ghost" id="mapZoomFit" style="flex:none; padding:8px 9px; background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3); font-size:10.5px;">FIT</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; border-top:1px solid var(--line);">
+          <span style="font-size:10px; color:var(--dim); font-weight:700; letter-spacing:.03em;">LANGSAM</span>
+          <div style="flex:1; height:7px; border-radius:4px; background:linear-gradient(90deg,#E63946,#FFD400,#1DB954);"></div>
+          <span style="font-size:10px; color:var(--dim); font-weight:700; letter-spacing:.03em;">SCHNELL <span id="speedLegendMax">–</span></span>
+        </div>
+      </div>
+      <div class="ctrl-btn" id="recordToggleBtn" style="text-align:center;">⏺ Aufzeichnung starten</div>
+      <div class="panel-hint" id="recordStatusHint">Aufzeichnung pausiert – es werden gerade keine Trackpunkte geloggt.</div>
+      <div class="data-row">
+        <div class="panel data-card"><div class="panel-label">Punkte (aktueller Lauf)</div><span class="data-val" id="mapTrackCount">0</span></div>
+        <div class="panel data-card"><div class="panel-label">Distanz gesegelt</div><span class="data-val" id="mapTrackDist">0</span><span class="data-unit"> m</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Frühere Läufe einblenden</div>
+        <div class="log-list" id="overlayRunList"><div class="panel-hint">Noch keine gespeicherten Läufe zum Einblenden.</div></div>
+      </div>
+      <div class="ctrl-btn primary" id="newRunBtn" style="text-align:center;">🏁 Lauf speichern &amp; neu starten</div>
+      <div class="panel-hint">Speichert Track, Manöver &amp; Übersegelt-Log dieses Laufs (unter „Log“ abrufbar), pausiert danach die Aufzeichnung und beginnt einen frischen Track – Startlinie &amp; Luvtonne bleiben dabei erhalten.</div>
+      <div class="panel-hint" id="resetCourseBtn" style="text-decoration:underline; cursor:pointer;">Neue Regattabahn: Startlinie &amp; Luvtonne komplett löschen</div>
+    </div>
+
+    <!-- LOG VIEW -->
+    <div class="view" id="view-log">
+      <div class="data-row">
+        <div class="panel data-card"><div class="panel-label">Track-Punkte</div><span class="data-val" id="trackCount">0</span></div>
+        <div class="panel data-card"><div class="panel-label">Manöver</div><span class="data-val" id="maneuverCount">0</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Letzte Manöver</div>
+        <div class="log-list" id="maneuverList"><div class="panel-hint">Noch keine Manöver aufgezeichnet.</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Luvtonne · Übersegelt-Warnungen <span id="overstandCount" style="color:var(--dim); font-weight:600;">(0)</span></div>
+        <div class="log-list" id="overstandList"><div class="panel-hint">Noch keine Warnung – wird automatisch geloggt, sobald du die Layline zur Luvtonne nach Luv überschreitest.</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Gespeicherte Läufe <span id="savedRunsCount" style="color:var(--dim); font-weight:600;">(0)</span></div>
+        <div class="log-list" id="savedRunsList"><div class="panel-hint">Noch keine gespeicherten Läufe – auf der Karte „Lauf speichern &amp; neu starten“ nutzen.</div></div>
+        <div class="panel-hint" id="deleteAllRunsBtn" style="text-decoration:underline; cursor:pointer; color:var(--red,#E63946); margin-top:8px;">Alle gespeicherten Läufe löschen</div>
+      </div>
+      <div class="export-btn" id="exportBtn">Aktuellen Lauf als GPX exportieren</div>
+    </div>
+
+  </main>
+
+  <div class="tabbar">
+    <div class="tab active" data-view="view-timer"><span class="tab-icon">⏱</span>Timer</div>
+    <div class="tab" data-view="view-wind"><span class="tab-icon">🧭</span>Trimm</div>
+    <div class="tab" data-view="view-tactic"><span class="tab-icon">📐</span>Taktik</div>
+    <div class="tab" data-view="view-start"><span class="tab-icon">🚩</span>Start</div>
+    <div class="tab" data-view="view-map"><span class="tab-icon">🗺️</span>Karte</div>
+    <div class="tab" data-view="view-log"><span class="tab-icon">📍</span>Log</div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-btn primary" id="btnStart">Start / Sync</div>
+    <div class="ctrl-btn" id="btnWind">Wind pingen</div>
+    <div class="ctrl-btn" id="btnMode">Modus</div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin=""></script>
+<script>
+if(!window.isSecureContext){
+  document.getElementById('secureWarning').style.display = 'block';
+}
+/* ================= Bootsprofile mit windstärke-abhängigen Soll-Winkeln =================
+   Näherungswerte zur Veranschaulichung der Logik – vor Renneinsatz mit echten
+   Polardaten / Messungen des jeweiligen Boots kalibrieren. */
+const PROFILES = [
+  { id:'k2',  name:'Topcat K2',  damping:1, angles:{ leicht:{up:45,down:140}, mittel:{up:42,down:135}, stark:{up:40,down:128} } },
+  { id:'ixy', name:'Ixylon',     damping:2, angles:{ leicht:{up:47,down:170}, mittel:{up:45,down:165}, stark:{up:43,down:158} } },
+  { id:'zk10',name:'ZK 10',      damping:3, angles:{ leicht:{up:50,down:175}, mittel:{up:48,down:170}, stark:{up:46,down:164} } },
+  { id:'opti',name:'Optimist',   damping:2, angles:{ leicht:{up:47,down:178}, mittel:{up:45,down:175}, stark:{up:44,down:170} } },
+];
+
+/* ---- eigene, vom Nutzer angelegte Bootsklassen aus localStorage nachladen ---- */
+try{
+  const savedCustoms = JSON.parse(localStorage.getItem('segelcomp_customProfiles') || '[]');
+  savedCustoms.forEach(p=> PROFILES.push(p));
+}catch(e){}
+
+let activeProfileIdx = 0;
+let windStrength = 'leicht';
+let filterWindowSec = 2;
+
+/* ---- Akustische & haptische Signale: ein-/ausschaltbar, Zustand wird gemerkt ---- */
+let audioEnabled = true, vibrationEnabled = true;
+const vibChip = document.getElementById('vibChip');
+const audioChip = document.getElementById('audioChip');
+function setAudioEnabled(v){
+  audioEnabled = v;
+  audioChip.classList.toggle('active', v);
+  try{ localStorage.setItem('segelcomp_audioEnabled', v ? '1' : '0'); }catch(e){}
+}
+function setVibrationEnabled(v){
+  vibrationEnabled = v;
+  vibChip.classList.toggle('active', v);
+  try{ localStorage.setItem('segelcomp_vibrationEnabled', v ? '1' : '0'); }catch(e){}
+}
+audioChip.addEventListener('click', ()=> setAudioEnabled(!audioEnabled));
+vibChip.addEventListener('click', ()=> setVibrationEnabled(!vibrationEnabled));
+(function initSignalToggles(){
+  let a=null, v=null;
+  try{
+    a = localStorage.getItem('segelcomp_audioEnabled');
+    v = localStorage.getItem('segelcomp_vibrationEnabled');
+  }catch(e){}
+  setAudioEnabled(a===null ? true : a==='1');
+  setVibrationEnabled(v===null ? true : v==='1');
+})();
+function vibrate(ms){
+  try{ if(vibrationEnabled && navigator.vibrate) navigator.vibrate(ms); }catch(e){}
+}
+
+/* ---- Einstellungen-Panel ein-/ausklappen (Zustand wird gemerkt) ---- */
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsPanel = document.getElementById('settingsPanel');
+const settingsToggleIcon = document.getElementById('settingsToggleIcon');
+function setSettingsCollapsed(collapsed){
+  settingsPanel.classList.toggle('collapsed', collapsed);
+  settingsToggleIcon.classList.toggle('open', !collapsed);
+  try{ localStorage.setItem('segelcomp_settingsCollapsed', collapsed ? '1' : '0'); }catch(e){}
+}
+settingsToggle.addEventListener('click', ()=>{
+  setSettingsCollapsed(!settingsPanel.classList.contains('collapsed'));
+});
+/* Das Ein-/Ausklappen des Einstellungen-Panels ändert per CSS-Transition die
+   Höhe des Kartenbereichs, ohne dass Leaflet davon erfährt – das führte zu
+   verschobenen/falsch ausgerichteten Kartenkacheln. Nach der Transition
+   Größe neu berechnen lassen (mit Timeout-Fallback, falls transitionend
+   z.B. bei max-height:0 → 0 nicht feuert). */
+settingsPanel.addEventListener('transitionend', (e)=>{
+  if(e.propertyName === 'max-height') resizeMapCanvas();
+});
+settingsToggle.addEventListener('click', ()=> setTimeout(resizeMapCanvas, 320));
+(function initSettingsCollapsed(){
+  let saved = null;
+  try{ saved = localStorage.getItem('segelcomp_settingsCollapsed'); }catch(e){}
+  setSettingsCollapsed(saved === '1');
+})();
+
+/* ---- Display wach halten (Screen Wake Lock API) ---- */
+function showToast(msg){
+  let toast = document.getElementById('appToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'appToast';
+    toast.style.cssText = 'position:fixed; left:50%; bottom:96px; transform:translateX(-50%); background:var(--panel-2); color:var(--text); border:1px solid var(--line); padding:10px 16px; border-radius:10px; font-size:12.5px; font-weight:600; z-index:60; max-width:82%; text-align:center; box-shadow:0 4px 14px rgba(0,0,0,0.35);';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>{ toast.style.display = 'none'; }, 3500);
+}
+let wakeLockSentinel = null;
+let wakeLockDesired = false;
+const wakeDot = document.getElementById('wakeDot');
+function updateWakeUI(){ wakeDot.classList.toggle('live', !!wakeLockSentinel); wakeDot.classList.toggle('warn', wakeLockDesired && !wakeLockSentinel); }
+async function acquireWakeLock(){
+  if(!('wakeLock' in navigator)){ showToast('Display-Sperre wird von diesem Browser nicht unterstützt.'); return false; }
+  try{
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', ()=>{ wakeLockSentinel = null; updateWakeUI(); });
+    return true;
+  }catch(e){
+    wakeLockSentinel = null;
+    showToast(!window.isSecureContext
+      ? 'Display-Sperre braucht HTTPS oder localhost – als lokale Datei (file://) nicht möglich.'
+      : 'Display-Sperre aktuell nicht möglich: ' + e.message);
+    return false;
+  }
+}
+document.getElementById('wakeToggle').addEventListener('click', async ()=>{
+  if(wakeLockDesired){
+    wakeLockDesired = false;
+    if(wakeLockSentinel){ try{ await wakeLockSentinel.release(); }catch(e){} }
+    wakeLockSentinel = null;
+  } else {
+    wakeLockDesired = true;
+    await acquireWakeLock();
+  }
+  updateWakeUI();
+});
+document.addEventListener('visibilitychange', async ()=>{
+  if(wakeLockDesired && document.visibilityState === 'visible' && !wakeLockSentinel){
+    await acquireWakeLock();
+    updateWakeUI();
+  }
+});
+
+/* ---- Vollbild bei Doppel-Tap aufs farbige Feld (nochmal 2x Tap = zurück) ---- */
+const windZoneEl = document.getElementById('windZone');
+function toggleZoneFullscreen(){
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if(!fsEl){
+    const req = windZoneEl.requestFullscreen || windZoneEl.webkitRequestFullscreen;
+    if(!req){ showToast('Vollbild wird von diesem Browser nicht unterstützt.'); return; }
+    req.call(windZoneEl).catch(err=>{
+      showToast(!window.isSecureContext
+        ? 'Vollbild in diesem Kontext blockiert – als lokale Datei (file://) oft nicht möglich. Über HTTPS/localhost testen.'
+        : 'Vollbild aktuell nicht möglich: ' + err.message);
+    });
+  } else {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if(exit) exit.call(document).catch(()=>{});
+  }
+}
+let lastZoneTap = 0;
+windZoneEl.addEventListener('click', ()=>{
+  const now = Date.now();
+  if(now - lastZoneTap < 350){ toggleZoneFullscreen(); lastZoneTap = 0; }
+  else{ lastZoneTap = now; }
+});
+function syncZoneFullscreenClass(){
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  windZoneEl.classList.toggle('zone-fullscreen', fsEl === windZoneEl);
+}
+document.addEventListener('fullscreenchange', syncZoneFullscreenClass);
+document.addEventListener('webkitfullscreenchange', syncZoneFullscreenClass);
+
+function currentProfile(){ return PROFILES[activeProfileIdx]; }
+function currentAngles(){ return currentProfile().angles[windStrength]; }
+function saveCustomProfiles(){
+  try{ localStorage.setItem('segelcomp_customProfiles', JSON.stringify(PROFILES.filter(p=>p.custom))); }catch(e){}
+}
+
+/* ---- Bootsklasse als platzsparender Reiter (Select) – inkl. Möglichkeit, eigene Klassen anzulegen ---- */
+const profileSelect = document.getElementById('profileSelect');
+const ADD_PROFILE_VALUE = '__add__';
+function renderProfileOptions(){
+  profileSelect.innerHTML = '';
+  PROFILES.forEach((p, i)=>{
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = p.name + (p.custom ? ' ✎' : '');
+    profileSelect.appendChild(opt);
+  });
+  const addOpt = document.createElement('option');
+  addOpt.value = ADD_PROFILE_VALUE;
+  addOpt.textContent = '➕ Eigene Bootsklasse …';
+  profileSelect.appendChild(addOpt);
+  profileSelect.value = String(activeProfileIdx);
+}
+function addCustomProfile(){
+  const name = window.prompt('Name der neuen Bootsklasse:');
+  if(name === null || !name.trim()){ renderProfileOptions(); return; }
+  const upStr = window.prompt('Am-Wind-Winkel in ° (TWA, z. B. 45):', '45');
+  const downStr = window.prompt('Vor-dem-Wind-Winkel in ° (TWA, z. B. 150):', '150');
+  const up = parseFloat(upStr), down = parseFloat(downStr);
+  const a = { up: isNaN(up) ? 45 : up, down: isNaN(down) ? 150 : down };
+  const profile = { id:'custom-'+Date.now(), name:name.trim(), damping:2, custom:true,
+    angles:{ leicht:{...a}, mittel:{...a}, stark:{...a} } };
+  PROFILES.push(profile);
+  saveCustomProfiles();
+  activeProfileIdx = PROFILES.length - 1;
+  renderProfileOptions();
+}
+profileSelect.addEventListener('change', ()=>{
+  if(profileSelect.value === ADD_PROFILE_VALUE){ addCustomProfile(); return; }
+  activeProfileIdx = parseInt(profileSelect.value, 10);
+});
+renderProfileOptions();
+document.querySelectorAll('[data-str]').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    windStrength = chip.dataset.str;
+    chip.parentElement.querySelectorAll('[data-str]').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+  });
+});
+document.querySelectorAll('[data-filt]').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    filterWindowSec = parseInt(chip.dataset.filt,10);
+    chip.parentElement.querySelectorAll('[data-filt]').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+  });
+});
+
+/* ---- Anzeige-Modus: Dunkel / Hell / Nacht (Rot) ---- */
+document.querySelectorAll('[data-theme]').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const theme = chip.dataset.theme;
+    document.documentElement.dataset.theme = theme;
+    chip.parentElement.querySelectorAll('[data-theme]').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    try{ localStorage.setItem('segelcomp_theme', theme); }catch(e){}
+  });
+});
+try{
+  const savedTheme = localStorage.getItem('segelcomp_theme');
+  if(savedTheme){
+    document.documentElement.dataset.theme = savedTheme;
+    document.querySelectorAll('[data-theme]').forEach(c=>c.classList.toggle('active', c.dataset.theme===savedTheme));
+  }
+}catch(e){}
+
+/* ---- Montage: Handy fest am Boot vs. am Arm getragen -----------------------------------
+   Am Arm dreht sich der eingebaute Magnet-Kompass mit dem Arm mit und liefert keinen
+   brauchbaren Bootskurs mehr. Deshalb wird in diesem Modus für alle kursabhängigen
+   Anzeigen (Kompassrose, Wind-Zone, Winkel-Berechnung) statt der Rohkompassrichtung
+   der GPS-Kurs über Grund (COG) verwendet – der ist unabhängig davon, wie das Handy
+   gerade gehalten wird, braucht dafür aber ausreichend Fahrt durchs Wasser. ---- */
+let mountMode = 'boot'; // 'boot' | 'arm'
+const mountWarningEl = document.getElementById('mountWarning');
+const hdgLabelEl = document.getElementById('hdgLabel');
+function applyMountMode(){
+  mountWarningEl.style.display = (mountMode === 'arm') ? 'block' : 'none';
+  hdgLabelEl.textContent = (mountMode === 'arm') ? 'Kurs (GPS)' : 'Kompass';
+}
+document.querySelectorAll('[data-mount]').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    mountMode = chip.dataset.mount;
+    chip.parentElement.querySelectorAll('[data-mount]').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    applyMountMode();
+    try{ localStorage.setItem('segelcomp_mountMode', mountMode); }catch(e){}
+  });
+});
+try{
+  const savedMount = localStorage.getItem('segelcomp_mountMode');
+  if(savedMount === 'boot' || savedMount === 'arm'){
+    mountMode = savedMount;
+    document.querySelectorAll('[data-mount]').forEach(c=>c.classList.toggle('active', c.dataset.mount===savedMount));
+  }
+}catch(e){}
+applyMountMode();
+
+/* ---- Windquelle: Pingen / Live-Internet / Manuelle Eingabe ---- */
+let windSource = 'ping'; // 'ping' | 'live' | 'manual'
+let liveTWS = null;       // echte Windstärke (kn) aus der Wetter-API
+let manualTWS = null;     // manuell eingegebene Windstärke (kn)
+let liveInterval = null;
+const liveStatusEl = document.getElementById('liveStatus');
+const manualPanelEl = document.getElementById('manualWindPanel');
+const strengthRow = document.getElementById('strengthRow');
+
+const manualStatusEl = document.getElementById('manualStatus');
+let pendingManualDir = null, pendingManualSpeed = null;
+
+function manualConfirmedSummary(){
+  if(windRef===null && manualTWS===null) return null;
+  const parts = [];
+  if(windRef!==null) parts.push(Math.round(windRef)+'°');
+  if(manualTWS!=null) parts.push(manualTWS+' kn');
+  return parts.join(' · ');
+}
+
+document.querySelectorAll('[data-src]').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    windSource = chip.dataset.src;
+    chip.parentElement.querySelectorAll('[data-src]').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+
+    liveStatusEl.style.display = 'none';
+    manualPanelEl.style.display = 'none';
+    clearInterval(liveInterval); liveInterval = null;
+
+    if(windSource === 'live'){
+      liveStatusEl.style.display = 'block';
+      fetchLiveWind();
+      liveInterval = setInterval(fetchLiveWind, 5*60*1000); // Wettermodell ändert sich nicht sekündlich
+    } else if(windSource === 'manual'){
+      manualPanelEl.style.display = 'block';
+      // Werte werden hier bewusst NICHT automatisch übernommen – erst nach Tippen auf „Bestätigen".
+      const summary = manualConfirmedSummary();
+      manualStatusEl.textContent = summary ? ('Aktuell aktiv: '+summary+'. Neue Werte erst nach „Bestätigen" gültig.') : 'Werte eingeben und mit „Bestätigen" übernehmen.';
+    }
+    updateWindBtnLabel();
+  });
+});
+
+document.getElementById('manualDirInput').addEventListener('input', e=>{
+  const v = parseFloat(e.target.value);
+  pendingManualDir = isNaN(v) ? null : ((v%360)+360)%360;
+  manualStatusEl.textContent = 'Eingabe geändert – noch nicht bestätigt.';
+});
+document.getElementById('manualSpeedInput').addEventListener('input', e=>{
+  const v = parseFloat(e.target.value);
+  pendingManualSpeed = isNaN(v) ? null : v;
+  manualStatusEl.textContent = 'Eingabe geändert – noch nicht bestätigt.';
+});
+
+/* Erst beim Bestätigen werden die manuellen Werte tatsächlich für die Berechnung übernommen */
+document.getElementById('manualConfirmBtn').addEventListener('click', ()=>{
+  if(pendingManualDir !== null){ windRef = pendingManualDir; lastShiftBase = windRef; }
+  if(pendingManualSpeed !== null){ manualTWS = pendingManualSpeed; }
+  const summary = manualConfirmedSummary();
+  manualStatusEl.textContent = summary ? ('Bestätigt: '+summary+' – wird jetzt verwendet.') : 'Bitte Windrichtung und/oder -stärke eingeben.';
+  beep(700,80);
+});
+
+/* Auch im manuellen Modus kann man zur Korrektur die eigene Windrichtung pingen
+   (per Doppelbug wie gewohnt) – die Windstärke bleibt dabei manuell erhalten. */
+document.getElementById('manualPingCorrectBtn').addEventListener('click', ()=>{
+  if(referenceHeading() === null){ manualStatusEl.textContent = 'Kein Kurs verfügbar – Pingen aktuell nicht möglich.'; return; }
+  pingWind();
+  document.getElementById('manualDirInput').value = Math.round(windRef);
+  pendingManualDir = windRef;
+  const summary = manualConfirmedSummary();
+  manualStatusEl.textContent = 'Richtung per Ping korrigiert: '+Math.round(windRef)+'° (Windstärke bleibt manuell: '+(manualTWS!=null?manualTWS+' kn':'–')+').';
+});
+
+async function fetchLiveWind(){
+  if(!pos){
+    liveStatusEl.textContent = 'Warte auf GPS-Position für Live-Wind …';
+    return;
+  }
+  liveStatusEl.textContent = 'Lade Live-Wind …';
+  try{
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pos.lat.toFixed(3)}&longitude=${pos.lon.toFixed(3)}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if(data && data.current && data.current.wind_direction_10m != null){
+      windRef = data.current.wind_direction_10m;
+      liveTWS = data.current.wind_speed_10m;
+      lastShiftBase = windRef;
+      const t = new Date().toLocaleTimeString();
+      liveStatusEl.textContent = `Live: ${liveTWS.toFixed(1)} kn aus ${compassAbbr(windRef)} · ${Math.round(windRef)}° (Open-Meteo, Modell-/Vorhersagedaten für dein Gebiet, abgerufen ${t})`;
+    } else {
+      throw new Error('keine Daten');
+    }
+  }catch(e){
+    liveStatusEl.textContent = 'Keine Verbindung zu Live-Wind – letzter bekannter Wert bleibt aktiv, oder auf „Pingen" wechseln.';
+  }
+}
+
+/* ================= Sensordaten & Gleitmittel-Filter ================= */
+let rawSog = null, rawCog = null, heading = null;
+let pos = null; // {lat, lon}
+let gpsOk = false, cmpOk = false;
+let manualHeading = 90;
+
+const SAMPLE_MS = 300;
+let sogSamples = [], cogSamples = []; // cog as {x,y} unit vectors for circular mean
+
+function pushSample(){
+  const maxLen = Math.max(1, Math.round((filterWindowSec*1000)/SAMPLE_MS));
+  if(rawSog !== null){
+    sogSamples.push(rawSog);
+    if(sogSamples.length > maxLen) sogSamples.shift();
+  }
+  if(rawCog !== null){
+    const rad = rawCog*Math.PI/180;
+    cogSamples.push({x:Math.cos(rad), y:Math.sin(rad)});
+    if(cogSamples.length > maxLen) cogSamples.shift();
+  }
+}
+function filteredSog(){
+  if(sogSamples.length===0) return null;
+  return sogSamples.reduce((a,b)=>a+b,0)/sogSamples.length;
+}
+function filteredCog(){
+  if(cogSamples.length===0) return null;
+  const sx = cogSamples.reduce((a,s)=>a+s.x,0), sy = cogSamples.reduce((a,s)=>a+s.y,0);
+  let deg = Math.atan2(sy,sx)*180/Math.PI;
+  return (deg+360)%360;
+}
+/* Unter 1 kn ist COG unzuverlässig -> Kompasskurs als Ersatzkurs nutzen */
+function effectiveCourse(){
+  const sog = filteredSog();
+  const cog = filteredCog();
+  if(sog !== null && sog < 1.0 && heading !== null) return heading;
+  return cog !== null ? cog : heading;
+}
+/* Liefert den Kurs, der für Kompassrose/Wind-Winkel verwendet werden soll.
+   Am Arm getragen ist die Rohkompassrichtung unbrauchbar (dreht sich mit dem Arm) –
+   dort wird stattdessen konsequent der GPS-Kurs über Grund (COG) genutzt. */
+function referenceHeading(){
+  if(mountMode === 'arm') return effectiveCourse();
+  return heading !== null ? heading : effectiveCourse();
+}
+
+function setDot(id, ok, warn){
+  const el = document.getElementById(id);
+  el.classList.remove('live','warn');
+  if(ok) el.classList.add('live'); else if(warn) el.classList.add('warn');
+}
+
+/* ================= Sensor-Gate ================= */
+let gpsEnabled = true;
+let watchId = null;
+
+function startGeoWatch(){
+  if(!('geolocation' in navigator)) return;
+  watchId = navigator.geolocation.watchPosition(p=>{
+    gpsOk = true; setDot('gpsDot', true);
+    pos = { lat: p.coords.latitude, lon: p.coords.longitude };
+    if(p.coords.speed != null) rawSog = p.coords.speed * 1.94384;
+    if(p.coords.heading != null && !isNaN(p.coords.heading)) rawCog = p.coords.heading;
+  }, ()=> setDot('gpsDot', false, true), { enableHighAccuracy:true, maximumAge:1000 });
+}
+function stopGeoWatch(){
+  if(watchId != null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+  gpsOk = false;
+  rawSog = null; rawCog = null;
+  setDot('gpsDot', false, false);
+}
+document.getElementById('gpsToggle').addEventListener('click', ()=>{
+  gpsEnabled = !gpsEnabled;
+  document.getElementById('gpsToggleLabel').textContent = gpsEnabled ? 'GPS' : 'GPS (aus)';
+  if(gpsEnabled){ startGeoWatch(); }
+  else { stopGeoWatch(); }
+});
+
+document.getElementById('grantBtn').addEventListener('click', async ()=>{
+  if(!window.isSecureContext){
+    document.getElementById('secureWarning').style.display = 'block';
+  }
+  if(gpsEnabled) startGeoWatch();
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    try{
+      const res = await DeviceOrientationEvent.requestPermission();
+      if(res === 'granted'){ bindCompass(); } else { setDot('cmpDot', false, true); }
+    }catch(e){ setDot('cmpDot', false, true); }
+  } else if('DeviceOrientationEvent' in window){ bindCompass(); }
+  document.getElementById('gate').style.display = 'none';
+  startDemoFallback();
+});
+document.getElementById('skipBtn').addEventListener('click', ()=>{
+  document.getElementById('gate').style.display = 'none';
+  startDemoFallback();
+});
+function bindCompass(){
+  window.addEventListener('deviceorientation', e=>{
+    let h = e.webkitCompassHeading != null ? e.webkitCompassHeading : (360 - e.alpha);
+    if(h != null && !isNaN(h)){ heading = ((h%360)+360)%360; cmpOk = true; setDot('cmpDot', true); }
+  });
+}
+function startDemoFallback(){
+  setTimeout(()=>{
+    if(gpsEnabled && !gpsOk && rawSog === null) rawSog = 4.8;
+    if(gpsEnabled && !gpsOk && rawCog === null) rawCog = 90;
+    if(gpsEnabled && (!gpsOk || !cmpOk)){
+      document.getElementById('sensorWarning').style.display = 'block';
+    }
+  }, 8000);
+  setInterval(()=>{
+    if(gpsOk && cmpOk){
+      document.getElementById('sensorWarning').style.display = 'none';
+    }
+    if(!cmpOk){ manualHeading = (manualHeading + 0.6) % 360; heading = manualHeading; }
+    if(gpsEnabled && !gpsOk){
+      rawCog = heading;
+      rawSog = 4.5 + Math.sin(Date.now()/4000)*0.6;
+      // simulierte Position (nur für Demo-Distanzen), driftet leicht
+      if(!pos) pos = { lat: 54.3233, lon: 10.1228 }; // Kieler Förde als Platzhalter
+      const metersPerDeg = 111320;
+      pos = {
+        lat: pos.lat + (rawSog*0.5144*SAMPLE_MS/1000)*Math.cos(heading*Math.PI/180)/metersPerDeg,
+        lon: pos.lon + (rawSog*0.5144*SAMPLE_MS/1000)*Math.sin(heading*Math.PI/180)/(metersPerDeg*Math.cos(pos.lat*Math.PI/180))
+      };
+    }
+  }, SAMPLE_MS);
+}
+
+/* ================= Geo-Hilfsfunktionen ================= */
+const R_EARTH = 6371000;
+function toRad(d){ return d*Math.PI/180; }
+function toDeg(r){ return r*180/Math.PI; }
+function haversineDist(a,b){
+  const dLat = toRad(b.lat-a.lat), dLon = toRad(b.lon-a.lon);
+  const la1 = toRad(a.lat), la2 = toRad(b.lat);
+  const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R_EARTH*Math.asin(Math.sqrt(h));
+}
+function bearing(a,b){
+  const la1=toRad(a.lat), la2=toRad(b.lat), dLon=toRad(b.lon-a.lon);
+  const y = Math.sin(dLon)*Math.cos(la2);
+  const x = Math.cos(la1)*Math.sin(la2) - Math.sin(la1)*Math.cos(la2)*Math.cos(dLon);
+  return (toDeg(Math.atan2(y,x))+360)%360;
+}
+function crossTrackDist(p1, p2, p3){
+  // Distanz von p3 zur Linie p1->p2
+  const d13 = haversineDist(p1,p3)/R_EARTH;
+  const t13 = toRad(bearing(p1,p3));
+  const t12 = toRad(bearing(p1,p2));
+  return Math.asin(Math.sin(d13)*Math.sin(t13-t12))*R_EARTH;
+}
+function angleDiff(a,b){ return (a-b+540)%360-180; }
+function circularMean(deg1, deg2){
+  const x = Math.cos(toRad(deg1))+Math.cos(toRad(deg2));
+  const y = Math.sin(toRad(deg1))+Math.sin(toRad(deg2));
+  return (toDeg(Math.atan2(y,x))+360)%360;
+}
+
+/* ---- Kompass-Kürzel (8 Punkte, deutsch) ---- */
+const COMPASS_DIRS = ['N','NO','O','SO','S','SW','W','NW'];
+function compassAbbr(deg){
+  if(deg===null || isNaN(deg)) return '–';
+  const idx = Math.round(((deg%360)+360)%360/45)%8;
+  return COMPASS_DIRS[idx];
+}
+
+/* ---- Geschätzte wahre Windstärke je Chip-Auswahl (kn) ----
+   Kein Anemometer in der Spec vorgesehen -> reiner Platzhalter,
+   bis echte Windsensordaten verfügbar sind. */
+const TWS_ESTIMATE = { leicht: 8, mittel: 14, stark: 20 };
+
+/* Scheinbarer Wind aus wahrem Wind (Richtung + geschätzte Stärke) und
+   Bootsbewegung (SOG/COG) über Vektoraddition (Grund-Referenzsystem). */
+function computeApparentWind(){
+  if(windRef===null) return null;
+  const course = effectiveCourse();
+  const sog = filteredSog();
+  if(course===null || sog===null) return null;
+  const tws = (windSource === 'live' && liveTWS != null) ? liveTWS
+            : (windSource === 'manual' && manualTWS != null) ? manualTWS
+            : TWS_ESTIMATE[windStrength];
+  const windToRad = toRad((windRef+180)%360); // Richtung, in die die Luft strömt
+  const windVec = { x: tws*Math.sin(windToRad), y: tws*Math.cos(windToRad) };
+  const courseRad = toRad(course);
+  const boatVec = { x: sog*Math.sin(courseRad), y: sog*Math.cos(courseRad) };
+  const appVec = { x: windVec.x - boatVec.x, y: windVec.y - boatVec.y };
+  const aws = Math.sqrt(appVec.x*appVec.x + appVec.y*appVec.y);
+  const appToDeg = (toDeg(Math.atan2(appVec.x, appVec.y))+360)%360;
+  const appFromDeg = (appToDeg+180)%360;
+  return { aws, fromDeg: appFromDeg };
+}
+
+/* ---- Kompassrose in der Mitte: Gradstriche + N/O/S/W, dreht sich automatisch mit dem Kurs ----
+   Der Bootspfeil (boatMarker) zeigt immer fest nach oben (= Bug). Stattdessen dreht sich
+   der äussere Ring mit den Strichen/Buchstaben entgegen dem Kurs – wie bei einer echten
+   Bootskompassrose. Die Buchstaben selbst werden gegen-rotiert, damit sie lesbar bleiben. */
+(function buildCompassRing(){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const ring = document.getElementById('compassRing');
+  const CARDINALS = { 0:'N', 90:'O', 180:'S', 270:'W' };
+  for(let deg=0; deg<360; deg+=10){
+    const isCardinal = deg % 90 === 0;
+    const isMajor = deg % 30 === 0;
+    const rOuter = 46;
+    const rInner = isCardinal ? 35 : (isMajor ? 39.5 : 42.5);
+    const rad = deg * Math.PI/180;
+    const x1 = 50 + rOuter*Math.sin(rad), y1 = 50 - rOuter*Math.cos(rad);
+    const x2 = 50 + rInner*Math.sin(rad), y2 = 50 - rInner*Math.cos(rad);
+    const line = document.createElementNS(SVGNS,'line');
+    line.setAttribute('x1', x1.toFixed(2)); line.setAttribute('y1', y1.toFixed(2));
+    line.setAttribute('x2', x2.toFixed(2)); line.setAttribute('y2', y2.toFixed(2));
+    line.setAttribute('stroke', isCardinal ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)');
+    line.setAttribute('stroke-width', isCardinal ? 1.6 : (isMajor ? 1.1 : 0.6));
+    ring.appendChild(line);
+
+    if(CARDINALS[deg]){
+      const rLabel = 63;
+      const lx = 50 + rLabel*Math.sin(rad), ly = 50 - rLabel*Math.cos(rad);
+      const g = document.createElementNS(SVGNS,'g');
+      g.classList.add('cardinal-label');
+      g.dataset.tx = lx.toFixed(2);
+      g.dataset.ty = ly.toFixed(2);
+      g.setAttribute('transform', `translate(${lx.toFixed(2)},${ly.toFixed(2)})`);
+      const text = document.createElementNS(SVGNS,'text');
+      text.setAttribute('text-anchor','middle');
+      text.setAttribute('dominant-baseline','middle');
+      text.setAttribute('font-size','20');
+      text.setAttribute('font-weight','700');
+      text.setAttribute('fill','rgba(255,255,255,0.85)');
+      text.textContent = CARDINALS[deg];
+      g.appendChild(text);
+      ring.appendChild(g);
+    }
+  }
+})();
+
+
+let audioCtx = null;
+function beep(freq=880, dur=120){
+  if(!audioEnabled) return;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; o.type = 'square'; g.gain.value = 0.06;
+    o.connect(g); g.connect(audioCtx.destination); o.start();
+    setTimeout(()=>o.stop(), dur);
+  }catch(e){}
+}
+
+/* ================= Timer ================= */
+let timerSeconds = 5*60, timerRunning = false, timerInterval = null;
+const timerNum = document.getElementById('timerNum'), timerSub = document.getElementById('timerSub'), timerFace = document.getElementById('timerFace');
+function formatTime(s){ const sign = s<0?'-':''; s=Math.abs(s); return sign+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function renderTimer(){ timerNum.textContent = formatTime(timerSeconds); timerSub.textContent = timerRunning ? (timerSeconds<=0?'GESTARTET':'Countdown läuft') : 'Bereit'; }
+const TIMER_MARK_SECONDS = [180, 60, 30]; // 3:00, 1:00, 30 sec
+function flashTimerFace(dur){
+  timerFace.classList.add('flash');
+  setTimeout(()=>timerFace.classList.remove('flash'), dur);
+}
+function tickTimer(){
+  timerSeconds -= 1;
+  if(timerSeconds === 0){
+    beep(1800, 600); // langer Signalton beim Start
+    flashTimerFace(300);
+  } else if(timerSeconds > 0 && timerSeconds <= 5){
+    beep(1200, 90); // Sekunden-Beeps in den letzten 5 Sekunden
+    flashTimerFace(150);
+  } else if(TIMER_MARK_SECONDS.includes(timerSeconds)){
+    beep(1000, 150); // wichtige Marken: 3:00 / 1:00 / 30 sec
+    flashTimerFace(150);
+  }
+  renderTimer();
+}
+document.querySelectorAll('.preset-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ clearInterval(timerInterval); timerRunning=false; timerSeconds=parseInt(btn.dataset.min,10)*60; renderTimer(); });
+});
+function startStopTimer(){
+  if(!timerRunning){ timerRunning=true; timerInterval=setInterval(tickTimer,1000); }
+  else{ const rem=timerSeconds%60; if(rem!==0) timerSeconds += (rem<=30)?-rem:(60-rem); beep(1000,100); }
+  renderTimer();
+}
+
+/* ================= Wind-Referenz (Einzel- oder Doppel-Ping) ================= */
+let windPings = []; // bis zu 2 Headings
+let windRef = null;
+let lastShiftBase = null;
+let windPingTimeout = null;
+
+function pingWind(){
+  const hdg = referenceHeading();
+  if(hdg === null) return;
+  windPings.push(hdg);
+  if(windPings.length === 1){
+    windRef = hdg;
+    lastShiftBase = hdg;
+    document.getElementById('zoneSub').textContent = '1. Bug gespeichert (' + Math.round(hdg) + '°) – auf Gegenbug drehen & erneut pingen für Mittelwert';
+    clearTimeout(windPingTimeout);
+    windPingTimeout = setTimeout(()=>{ windPings = []; }, 20000); // Fenster für 2. Ping
+  } else {
+    windRef = circularMean(windPings[0], windPings[1]);
+    lastShiftBase = windRef;
+    document.getElementById('zoneSub').textContent = 'Referenz aus 2 Bugen gemittelt';
+    windPings = [];
+    clearTimeout(windPingTimeout);
+  }
+  beep(700,80);
+}
+
+/* ================= Startlinie ================= */
+let lineBoat = null, linePin = null;
+/* Startlinie & Luvtonne werden lokal gespeichert, damit sie einen App-
+   Neustart/Reload überstehen und beim "Lauf speichern & neu starten"
+   nicht verloren gehen. */
+function persistRefPoints(){
+  try{ localStorage.setItem('segelcomp_refPoints', JSON.stringify({ lineBoat, linePin, markPos })); }catch(e){}
+}
+function loadRefPoints(){
+  try{
+    const raw = localStorage.getItem('segelcomp_refPoints');
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    if(d.lineBoat) lineBoat = d.lineBoat;
+    if(d.linePin) linePin = d.linePin;
+    if(d.markPos) markPos = d.markPos;
+  }catch(e){}
+}
+function resetCourse(){
+  lineBoat = null; linePin = null; markPos = null; lastLaylineState = null;
+  persistRefPoints();
+  updateLineStepLabel();
+  document.getElementById('laylineFlag').style.background = 'var(--line)';
+  document.getElementById('laylineFlag').style.color = 'var(--dim)';
+  document.getElementById('laylineFlag').textContent = 'Luvtonne noch nicht gepingt';
+  document.getElementById('markDist').textContent = '';
+  if(typeof redrawLeafletStatics === 'function') redrawLeafletStatics();
+  showToast('Startlinie & Luvtonne gelöscht – bereit für eine neue Bahn.');
+}
+function updateLineStepLabel(){
+  const el = document.getElementById('startStep');
+  if(lineBoat && linePin) el.textContent = 'Linie gesetzt · Einzelpunkte unten aktualisierbar';
+  else if(lineBoat) el.textContent = 'Schritt 2: Pin-Ende pingen';
+  else el.textContent = 'Schritt 1: Boot-Ende pingen';
+}
+function pingLine(){
+  if(!pos) return;
+  if(!lineBoat){
+    lineBoat = {...pos};
+    beep(700,80);
+  } else if(!linePin){
+    linePin = {...pos};
+    beep(900,120);
+  } else {
+    // reset & neu setzen (komplette Linie neu stecken)
+    lineBoat = {...pos}; linePin = null;
+    beep(700,80);
+  }
+  persistRefPoints();
+  updateLineStepLabel();
+  redrawLeafletStatics();
+}
+/* Re-Ping einzelner Linienpunkte, z. B. wenn nur die Pin-Tonne treibt,
+   während das Startschiff liegen bleibt (oder umgekehrt) */
+function pingLineBoatOnly(){
+  if(!pos) return;
+  lineBoat = {...pos};
+  beep(700,80);
+  persistRefPoints();
+  updateLineStepLabel();
+  redrawLeafletStatics();
+}
+function pingLinePinOnly(){
+  if(!pos) return;
+  linePin = {...pos};
+  beep(900,120);
+  persistRefPoints();
+  updateLineStepLabel();
+  redrawLeafletStatics();
+}
+document.getElementById('pingBoatBtn').addEventListener('click', pingLineBoatOnly);
+document.getElementById('pingPinBtn').addEventListener('click', pingLinePinOnly);
+
+/* Einzelne Referenzpunkte OHNE Ersatz entfernen (im Unterschied zum
+   "neu pingen", das die aktuelle Position braucht). So lässt sich z.B. nur
+   die Pin-Tonne aus der Karte nehmen, ohne Boot-Ende & Luvtonne zu verlieren. */
+function clearLineBoat(){
+  lineBoat = null;
+  persistRefPoints();
+  updateLineStepLabel();
+  redrawLeafletStatics();
+  showToast('Boot-Ende gelöscht.');
+}
+function clearLinePin(){
+  linePin = null;
+  persistRefPoints();
+  updateLineStepLabel();
+  redrawLeafletStatics();
+  showToast('Pin-Ende gelöscht.');
+}
+document.getElementById('clearBoatBtn').addEventListener('click', clearLineBoat);
+document.getElementById('clearPinBtn').addEventListener('click', clearLinePin);
+
+/* ================= Luvtonne & Layline ================= */
+let markPos = null;
+let lastLaylineState = null; // 'legerwall' | 'over' | 'under' – für Übersegelt-Warnung beim Zustandswechsel
+function pingMark(){
+  if(!pos) return;
+  markPos = {...pos};
+  lastLaylineState = null; // Zustand nach neuem Ping frisch bewerten, kein sofortiges Alarm-Log
+  beep(800,100);
+  persistRefPoints();
+  redrawLeafletStatics();
+}
+function clearMark(){
+  markPos = null;
+  lastLaylineState = null;
+  persistRefPoints();
+  document.getElementById('laylineFlag').style.background = 'var(--line)';
+  document.getElementById('laylineFlag').style.color = 'var(--dim)';
+  document.getElementById('laylineFlag').textContent = 'Luvtonne noch nicht gepingt';
+  document.getElementById('markDist').textContent = '';
+  redrawLeafletStatics();
+  showToast('Luvtonne gelöscht.');
+}
+document.getElementById('clearMarkBtn').addEventListener('click', clearMark);
+/* "Alles zurücksetzen" per zweimal antippen statt window.confirm() – gleiche
+   zuverlässigere Bestätigung wie beim Löschen gespeicherter Läufe. */
+document.getElementById('resetCourseBtn').addEventListener('click', function(){
+  if(this.dataset.armed === '1'){
+    clearTimeout(this._timer);
+    this.dataset.armed = '0';
+    this.textContent = 'Neue Regattabahn: Startlinie & Luvtonne komplett löschen';
+    resetCourse();
+  } else {
+    this.dataset.armed = '1';
+    this.textContent = 'Wirklich Startboot, Pin-Ende & Luvtonne löschen? Nochmal antippen zum Bestätigen';
+    this._timer = setTimeout(()=>{ this.dataset.armed='0'; this.textContent='Neue Regattabahn: Startlinie & Luvtonne komplett löschen'; }, 4000);
+  }
+});
+
+/* ================= Track- & Manöver-Log ================= */
+let trackLog = [];
+let maneuverLog = [];
+let overstandLog = [];
+let lastTrackPush = 0;
+/* Aufzeichnung ist standardmäßig AUS: GPS/Kompass laufen unabhängig davon
+   weiter (für Live-Werte & Karte), aber es werden erst dann Trackpunkte in
+   den Lauf geloggt, wenn der Nutzer die Aufzeichnung bewusst startet. So
+   werden keine Kurse zwischen zwei Läufen unnötig mitgeschrieben. */
+let recordingActive = false;
+function setRecordingActive(active){
+  recordingActive = active;
+  const btn = document.getElementById('recordToggleBtn');
+  const hint = document.getElementById('recordStatusHint');
+  if(btn){
+    btn.textContent = active ? '⏸ Aufzeichnung läuft – antippen zum Pausieren' : '⏺ Aufzeichnung starten';
+    btn.classList.toggle('primary', active);
+  }
+  if(hint){
+    hint.textContent = active
+      ? 'Trackpunkte werden jetzt aufgezeichnet.'
+      : 'Aufzeichnung pausiert – es werden gerade keine Trackpunkte geloggt.';
+  }
+}
+function trackDistance(track){
+  let d = 0;
+  for(let i=1;i<track.length;i++) d += haversineDist(track[i-1], track[i]);
+  return d;
+}
+function pushTrackPoint(){
+  if(!pos || !recordingActive) return;
+  const now = Date.now();
+  if(now - lastTrackPush < 5000) return;
+  lastTrackPush = now;
+  trackLog.push({ t: new Date().toISOString(), lat: pos.lat, lon: pos.lon, sog: filteredSog(), cog: filteredCog() });
+  document.getElementById('trackCount').textContent = trackLog.length;
+  const mtc = document.getElementById('mapTrackCount'); if(mtc) mtc.textContent = trackLog.length;
+  const mtd = document.getElementById('mapTrackDist'); if(mtd) mtd.textContent = Math.round(trackDistance(trackLog));
+  leafletPushNewTrackSegment();
+}
+function logManeuver(type, hdg){
+  maneuverLog.push({ t: new Date().toISOString(), type, heading: Math.round(hdg) });
+  document.getElementById('maneuverCount').textContent = maneuverLog.length;
+  const list = document.getElementById('maneuverList');
+  list.innerHTML = maneuverLog.slice(-8).reverse().map(m=>
+    `<div class="log-item"><span>${new Date(m.t).toLocaleTimeString()}</span><b>${m.type} · ${m.heading}°</b></div>`
+  ).join('');
+}
+/* Nur für die Luvtonne sinnvoll (Am-Wind-Sollwinkel) – Tonnen auf Vorwind-Kursen
+   können sich verschieben, daher wird dort bewusst nichts geloggt. */
+function logOverstand(degOver, distM, brg){
+  overstandLog.push({ t: new Date().toISOString(), deg: Math.round(degOver), dist: Math.round(distM), bearing: Math.round(brg) });
+  const countEl = document.getElementById('overstandCount');
+  if(countEl) countEl.textContent = '(' + overstandLog.length + ')';
+  const list = document.getElementById('overstandList');
+  list.innerHTML = overstandLog.slice(-8).reverse().map(o=>
+    `<div class="log-item"><span>${new Date(o.t).toLocaleTimeString()}</span><b>${o.deg}° übersegelt · ${o.dist} m</b></div>`
+  ).join('');
+}
+
+/* ================= Gespeicherte Läufe (speicherbar & ersetzbar) =================
+   Ein "Lauf" (Track + Manöver + Übersegelt-Log dieser Regatta-Runde) lässt sich
+   sichern und danach frisch neu aufzeichnen, OHNE Startlinie & Luvtonne zu verlieren –
+   die bleiben separat gespeichert (siehe persistRefPoints). */
+function getSavedRuns(){
+  let runs;
+  try{ runs = JSON.parse(localStorage.getItem('segelcomp_savedRuns') || '[]'); }
+  catch(e){ runs = []; }
+  if(!Array.isArray(runs)) runs = [];
+  // Selbstreparatur: nur echte Lauf-Objekte behalten, und Einträgen ohne
+  // eindeutige String-ID eine vergeben. Ohne das ließen sich manche Läufe
+  // (z.B. aus einer älteren Version gespeichert) nie per Klick löschen,
+  // weil der Löschen-Button per ID sucht und nie einen Treffer fand.
+  let repaired = false;
+  runs = runs.filter(r=>r && typeof r==='object' && Array.isArray(r.track));
+  const seenIds = new Set();
+  runs.forEach((r,i)=>{
+    if(!r.id || typeof r.id !== 'string' || seenIds.has(r.id)){
+      r.id = 'run_fix_' + Date.now() + '_' + i;
+      repaired = true;
+    }
+    seenIds.add(r.id);
+  });
+  if(repaired){
+    try{ localStorage.setItem('segelcomp_savedRuns', JSON.stringify(runs)); }catch(e){}
+  }
+  return runs;
+}
+function persistSavedRuns(runs){
+  try{ localStorage.setItem('segelcomp_savedRuns', JSON.stringify(runs)); }catch(e){
+    showToast('Speichern fehlgeschlagen (Speicher evtl. voll).');
+  }
+}
+function renderSavedRunsList(){
+  const runs = getSavedRuns();
+  const countEl = document.getElementById('savedRunsCount');
+  if(countEl) countEl.textContent = '(' + runs.length + ')';
+  const list = document.getElementById('savedRunsList');
+  if(!list) return;
+  if(runs.length === 0){
+    list.innerHTML = '<div class="panel-hint">Noch keine gespeicherten Läufe – auf der Karte „Lauf speichern &amp; neu starten“ nutzen.</div>';
+    return;
+  }
+  list.innerHTML = runs.slice().reverse().map(r=>
+    `<div class="log-item" style="align-items:center;">
+      <span>${r.name} · ${r.track.length} Pkt · ${Math.round(trackDistance(r.track))} m</span>
+      <span style="display:flex; gap:6px; flex-shrink:0;">
+        <span class="ctrl-btn small ghost" data-action="export-run" data-id="${r.id}" style="padding:5px 10px;">GPX</span>
+        <span class="ctrl-btn small ghost" data-action="delete-run" data-id="${r.id}" style="padding:5px 10px; color:var(--red, #E63946);">✕</span>
+      </span>
+    </div>`
+  ).join('');
+}
+/* Löschen per "zweimal antippen" statt window.confirm(): zuverlässiger auf
+   Mobilgeräten / als installierte App, wo native Dialoge gelegentlich
+   unterdrückt oder anders behandelt werden. Erster Tap markiert den Button
+   rot ("Sicher?"), zweiter Tap innerhalb von 3s löscht wirklich. */
+let armedDeleteRunId = null, armedDeleteRunTimer = null;
+function disarmDeleteRun(){
+  armedDeleteRunId = null;
+  clearTimeout(armedDeleteRunTimer);
+  armedDeleteRunTimer = null;
+}
+document.getElementById('savedRunsList').addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  if(btn.dataset.action === 'export-run'){
+    const run = getSavedRuns().find(r=>r.id===id);
+    if(!run) return;
+    exportTrackAsGPX(run.track, run.name);
+    return;
+  }
+  if(btn.dataset.action !== 'delete-run') return;
+  if(armedDeleteRunId === id){
+    disarmDeleteRun();
+    const runs = getSavedRuns();
+    const remaining = runs.filter(r=>r.id!==id);
+    persistSavedRuns(remaining);
+    overlaySelectedIds.delete(id);
+    persistOverlaySelection();
+    removeRunOverlayFromLeaflet(id);
+    renderSavedRunsList();
+    renderOverlayRunList();
+    showToast('Lauf gelöscht.');
+  } else {
+    disarmDeleteRun();
+    armedDeleteRunId = id;
+    btn.textContent = 'Sicher?';
+    btn.style.background = 'var(--red, #E63946)';
+    btn.style.color = '#fff';
+    armedDeleteRunTimer = setTimeout(()=>{ disarmDeleteRun(); renderSavedRunsList(); }, 3000);
+  }
+});
+document.getElementById('deleteAllRunsBtn').addEventListener('click', function(){
+  if(this.dataset.armed === '1'){
+    clearTimeout(this._timer);
+    this.dataset.armed = '0';
+    this.textContent = 'Alle gespeicherten Läufe löschen';
+    persistSavedRuns([]);
+    Object.keys(llOverlayLayers).forEach(id=>removeRunOverlayFromLeaflet(id));
+    overlaySelectedIds.clear();
+    persistOverlaySelection();
+    renderSavedRunsList();
+    renderOverlayRunList();
+    showToast('Alle gespeicherten Läufe gelöscht.');
+  } else {
+    this.dataset.armed = '1';
+    this.textContent = 'Wirklich ALLE Läufe löschen? Nochmal antippen zum Bestätigen';
+    this._timer = setTimeout(()=>{ this.dataset.armed='0'; this.textContent='Alle gespeicherten Läufe löschen'; }, 4000);
+  }
+});
+function resetOverstandDisplay(){
+  overstandLog = [];
+  const countEl = document.getElementById('overstandCount'); if(countEl) countEl.textContent = '(0)';
+  document.getElementById('overstandList').innerHTML = '<div class="panel-hint">Noch keine Warnung – wird automatisch geloggt, sobald du die Layline zur Luvtonne nach Luv überschreitest.</div>';
+}
+function saveCurrentRunAndReset(){
+  if(trackLog.length === 0){
+    showToast('Noch keine Trackpunkte für diesen Lauf – erst Aufzeichnung starten.');
+    return;
+  }
+  const runs = getSavedRuns();
+  const run = {
+    id: 'run_' + Date.now(),
+    name: 'Lauf ' + (runs.length+1) + ' · ' + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString().slice(0,5),
+    savedAt: new Date().toISOString(),
+    track: trackLog,
+    maneuvers: maneuverLog,
+    overstands: overstandLog,
+    tacks: tackCount,
+    gybes: gybeCount
+  };
+  runs.push(run);
+  persistSavedRuns(runs);
+
+  // Track & Manöver dieses Laufs zurücksetzen – Startlinie & Luvtonne bleiben unangetastet
+  trackLog = []; maneuverLog = []; lastTrackPush = 0;
+  tackCount = 0; gybeCount = 0;
+  document.getElementById('trackCount').textContent = '0';
+  document.getElementById('maneuverCount').textContent = '0';
+  document.getElementById('maneuverList').innerHTML = '<div class="panel-hint">Noch keine Manöver aufgezeichnet.</div>';
+  const mtc = document.getElementById('mapTrackCount'); if(mtc) mtc.textContent = '0';
+  const mtd = document.getElementById('mapTrackDist'); if(mtd) mtd.textContent = '0';
+  resetOverstandDisplay();
+  renderSavedRunsList();
+  renderOverlayRunList();
+  leafletClearCurrentTrack();
+  setRecordingActive(false);
+  showToast('Lauf gespeichert. Aufzeichnung pausiert – Startlinie & Luvtonne bleiben erhalten.');
+}
+document.getElementById('newRunBtn').addEventListener('click', saveCurrentRunAndReset);
+document.getElementById('recordToggleBtn').addEventListener('click', ()=> setRecordingActive(!recordingActive));
+async function exportTrackAsGPX(track, name){
+  const points = track.map(p=>`<trkpt lat="${p.lat}" lon="${p.lon}"><time>${p.t}</time></trkpt>`).join('\n    ');
+  const safeName = (name || 'Regatta Track').replace(/[<>&]/g, '');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="SegelComp Prototyp" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>${safeName}</name><trkseg>
+    ${points}
+  </trkseg></trk>
+</gpx>`;
+  const filename = safeName.replace(/\s+/g,'-').toLowerCase() + '-' + Date.now() + '.gpx';
+  const blob = new Blob([gpx], {type:'application/gpx+xml'});
+
+  // Bevorzugt: natives Teilen-Menü direkt öffnen (WhatsApp, Mail, AirDrop, Drive, …).
+  try{
+    const file = new File([blob], filename, {type:'application/gpx+xml'});
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title: safeName, text: 'GPX-Track: ' + safeName });
+      return;
+    }
+  }catch(e){
+    if(e && e.name === 'AbortError') return; // Nutzer hat Teilen-Dialog selbst abgebrochen
+    // sonst: still auf Download-Fallback weiterlaufen
+  }
+
+  // Fallback: normaler Datei-Download, falls Web Share API (mit Dateien) nicht unterstützt wird
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('GPX heruntergeladen (Teilen-Menü auf diesem Gerät nicht verfügbar).');
+}
+function exportGPX(){
+  exportTrackAsGPX(trackLog, 'Aktueller Lauf');
+}
+
+/* ================= Zonen-Logik (Kurserkennung + Trimm) =================
+   Automatische Erkennung der 4 klassischen Segelkurse anhand TWA:
+     Amwind < 70° · Halbwind 70–110° · Raumschots 110–150° · Vorwind ≥ 150°
+   Nur Amwind & Vorwind haben eine echte "Delle" im Polardiagramm (Kreuzen/
+   Halsen) und bekommen daher eine Rot/Grün/Gelb-Trimmbewertung gegen den
+   kalibrierten Soll-Winkel des Bootsprofils. Halbwind & Raumschots werden
+   nur erkannt/benannt – dort gibt es kein "zu dicht/zu tief", nur "schnell". */
+const ZONE_COLORS = { red:'#E63946', green:'#1DB954', orange:'#F4A300', blue:'#3A86FF', teal:'#219EBC', purple:'#8338EC' };
+let lastZoneKey = null; // für Vibrationsfeedback bei Zonenwechsel / Sweet-Spot-Verlassen
+const POS_BOUNDS = { halbwind:70, raumschots:110, vorwind:150 };
+function classifyZone(twaAbs){
+  const a = currentAngles();
+  if(twaAbs < POS_BOUNDS.halbwind){
+    const soll = a.up, delta = twaAbs - soll;
+    if(delta < -5) return { key:'red', pointOfSail:'Amwind', label:'Zu dicht (Gekneift)', sub:'Segel killt · Fahrt verlieren', soll };
+    if(delta <= 4) return { key:'green', pointOfSail:'Amwind', label:'Sweet Spot – Amwind', sub:'Optimaler Am-Wind-Trimm', soll };
+    return { key:'orange', pointOfSail:'Amwind', label:'Zu tief (Amwind)', sub:'Höhe verschenkt – fällt Richtung Halbwind ab', soll };
+  }
+  if(twaAbs < POS_BOUNDS.raumschots){
+    return { key:'blue', pointOfSail:'Halbwind', label:'Halbwind', sub:'Freier Kurs · kein Ziel-Trimm – Speed maximieren', soll:null };
+  }
+  if(twaAbs < POS_BOUNDS.vorwind){
+    return { key:'teal', pointOfSail:'Raumschots', label:'Raumschots', sub:'Freier Kurs · kein Ziel-Trimm – Speed maximieren', soll:null };
+  }
+  const soll = a.down, delta = twaAbs - soll;
+  if(delta > 5) return { key:'purple', pointOfSail:'Vorwind', label:'Zu tief vorm Wind', sub:'Halse-/Stillstandsgefahr', soll };
+  if(delta >= -4) return { key:'green', pointOfSail:'Vorwind', label:'Sweet Spot – Vorwind (VMG)', sub:'Optimaler Vor-Wind-Trimm', soll };
+  return { key:'blue', pointOfSail:'Vorwind', label:'Noch nicht tief genug', sub:'Für optimale VMG weiter abfallen', soll };
+}
+
+/* ================= Tabs & kontextabhängige Wind-Taste ================= */
+const tabs = document.querySelectorAll('.tab'), views = document.querySelectorAll('.view');
+let viewIdx = 0;
+const WIND_BTN_LABELS = { 'view-tactic':'Luvtonne pingen', 'view-start':'Linie pingen', 'view-log':'Exportieren' };
+function updateWindBtnLabel(){
+  const id = views[viewIdx].id;
+  let label = WIND_BTN_LABELS[id];
+  if(!label){ // view-timer / view-wind
+    label = windSource === 'live' ? 'Live aktualisieren' : (windSource === 'manual' ? 'Eingabe oben ↑' : 'Wind pingen');
+  }
+  document.getElementById('btnWind').textContent = label;
+}
+function setView(idx){
+  viewIdx = ((idx%views.length)+views.length)%views.length;
+  tabs.forEach((t,i)=>t.classList.toggle('active', i===viewIdx));
+  views.forEach((v,i)=>v.classList.toggle('active', i===viewIdx));
+  updateWindBtnLabel();
+  if(views[viewIdx].id === 'view-map'){
+    requestAnimationFrame(()=>{ resizeMapCanvas(); });
+  }
+}
+tabs.forEach((t,i)=>t.addEventListener('click', ()=>setView(i)));
+
+document.getElementById('btnStart').addEventListener('click', startStopTimer);
+document.getElementById('btnMode').addEventListener('click', ()=>setView(viewIdx+1));
+document.getElementById('btnWind').addEventListener('click', ()=>{
+  const id = views[viewIdx].id;
+  if(id === 'view-start') pingLine();
+  else if(id === 'view-tactic') pingMark();
+  else if(id === 'view-log') exportGPX();
+  else if(windSource === 'live') fetchLiveWind();
+  else if(windSource === 'manual') document.getElementById('manualDirInput').focus();
+  else pingWind();
+});
+document.getElementById('exportBtn').addEventListener('click', exportGPX);
+
+/* ================= Render-Loop ================= */
+function renderLoop(){
+  pushSample();
+  pushTrackPoint();
+  const sog = filteredSog(), cog = filteredCog(), course = effectiveCourse();
+  const refHdg = referenceHeading();
+
+  document.getElementById('sogVal').textContent = sog!==null ? sog.toFixed(1) : '–';
+  document.getElementById('cogVal').textContent = cog!==null ? Math.round(cog) : '–';
+  document.getElementById('hdgVal').textContent = refHdg!==null ? Math.round(refHdg) : '–';
+  document.getElementById('windRefVal').textContent = windRef!==null ? Math.round(windRef) : '–';
+
+  const twa = (windRef!==null && course!==null) ? angleDiff(course, windRef) : null;
+  const zoneEl = document.getElementById('windZone');
+  let currentZoneKey = null;
+  if(twa===null){
+    zoneEl.style.background = 'var(--panel)';
+    document.getElementById('zoneTitle').textContent = 'Kein Wind gepingt';
+    document.getElementById('twaNum').textContent = '–°';
+    lastZoneKey = null;
+  } else {
+    const twaAbs = Math.abs(twa);
+    const isUpwind = twaAbs < 100;
+    const zone = classifyZone(twaAbs);
+    currentZoneKey = zone.key;
+    zoneEl.style.background = ZONE_COLORS[zone.key];
+    document.getElementById('zoneTitle').textContent = zone.label;
+    document.getElementById('zoneSub').textContent = zone.sub;
+    document.getElementById('twaNum').textContent = Math.round(twaAbs)+'°';
+    document.getElementById('twaSoll').textContent = zone.soll!==null ? zone.soll+'°' : '–';
+    if(lastZoneKey!==null && currentZoneKey!==lastZoneKey){
+      vibrate(120); // Trimm-Zone hat gewechselt (inkl. Sweet-Spot verlassen/betreten)
+    }
+    lastZoneKey = currentZoneKey;
+    if(sog!==null){
+      const rad = twaAbs*Math.PI/180;
+      const vmg = sog*Math.cos(isUpwind?rad:(Math.PI-rad));
+      document.getElementById('vmgVal').textContent = Math.abs(vmg).toFixed(1);
+    }
+  }
+
+  // Winddreher
+  if(lastShiftBase!==null && course!==null){
+    const shift = angleDiff(course, lastShiftBase);
+    const shiftEl = document.getElementById('shiftVal'), flagEl = document.getElementById('shiftFlag');
+    if(Math.abs(shift)<3){ shiftEl.textContent='NEUTRAL'; flagEl.style.background='var(--line)'; flagEl.style.color='var(--dim)'; flagEl.textContent='Kein signifikanter Dreher'; }
+    else if(shift>0){ shiftEl.textContent='GEHEADED '+Math.round(shift)+'°'; flagEl.style.background='var(--red)'; flagEl.style.color='#fff'; flagEl.textContent='Wind dreht gegen dich – Höhenverlust'; }
+    else { shiftEl.textContent='GELIFTED '+Math.round(-shift)+'°'; flagEl.style.background='var(--green)'; flagEl.style.color='var(--ink)'; flagEl.textContent='Wind dreht für dich – Höhengewinn'; }
+  }
+
+  // Wenden/Halsen
+  if(course!==null){
+    if(renderLoop._lastHdg===undefined) renderLoop._lastHdg = course;
+    if(renderLoop._cooldown===undefined) renderLoop._cooldown = 0;
+    const delta = angleDiff(course, renderLoop._lastHdg);
+    if(renderLoop._cooldown>0) renderLoop._cooldown -= 1;
+    if(Math.abs(delta)>55 && renderLoop._cooldown===0){
+      const twaNow = (windRef!==null) ? angleDiff(course, windRef) : null;
+      const wasUpwind = twaNow!==null ? Math.abs(twaNow)<100 : true;
+      const type = wasUpwind ? 'Wende' : 'Halse';
+      if(wasUpwind){ trackTackInc(); } else { trackGybeInc(); }
+      logManeuver(type, course);
+      renderLoop._cooldown = 10;
+      renderLoop._lastHdg = course;
+    } else if(Math.abs(delta)<20){ renderLoop._lastHdg = course; }
+  }
+
+  // Layline zur Luvtonne (nur hier sinnvoll: nutzt den Am-Wind-Sollwinkel;
+  // Tonnen auf Vorwind-Kursen können sich verschieben und werden bewusst nicht geloggt)
+  if(markPos && pos && windRef!==null){
+    const distM = haversineDist(pos, markPos);
+    const brg = bearing(pos, markPos);
+    const markTWA = angleDiff(brg, windRef);
+    const soll = currentAngles().up;
+    const laylineEl = document.getElementById('laylineFlag');
+    const diff = Math.abs(markTWA) - soll;
+    let laylineState;
+    if(Math.abs(diff) <= 3){
+      laylineState = 'legerwall';
+      laylineEl.style.background='var(--amber)'; laylineEl.style.color='var(--ink)'; laylineEl.textContent='LEGERWALL – jetzt wenden möglich';
+    } else if(diff < -3){
+      laylineState = 'over';
+      laylineEl.style.background='var(--orange)'; laylineEl.style.color='var(--ink)'; laylineEl.textContent='ÜBERSEGELT – mehr Höhe als nötig';
+    } else {
+      laylineState = 'under';
+      laylineEl.style.background='var(--line)'; laylineEl.style.color='var(--dim)'; laylineEl.textContent='Noch '+Math.round(diff)+'° bis zur Layline';
+    }
+    // Warnung + Logeintrag nur beim Übergang IN den Übersegelt-Zustand (nicht jeden Frame)
+    if(laylineState==='over' && lastLaylineState!==null && lastLaylineState!=='over'){
+      vibrate(200);
+      beep(500,90); setTimeout(()=>beep(500,90),160);
+      logOverstand(Math.abs(diff), distM, brg);
+    }
+    lastLaylineState = laylineState;
+    document.getElementById('markDist').textContent = 'Distanz zur Luvtonne: ' + Math.round(distM) + ' m · Peilung ' + Math.round(brg) + '°';
+  } else {
+    lastLaylineState = null;
+  }
+
+  // Startlinie
+  if(lineBoat && linePin){
+    const lineBearing = bearing(lineBoat, linePin);
+    const squareBearing = windRef!==null ? (windRef+90)%360 : null;
+    if(squareBearing!==null){
+      const bias = angleDiff(lineBearing, squareBearing);
+      document.getElementById('biasNum').textContent = Math.round(Math.abs(bias))+'°';
+      document.getElementById('biasLabel').textContent = Math.abs(bias)<3
+        ? 'Linie ist quasi quadratisch zum Wind'
+        : (bias>0 ? 'Pin-Ende favorisiert' : 'Boot-Ende favorisiert');
+    }
+    if(pos){
+      const d = crossTrackDist(lineBoat, linePin, pos);
+      document.getElementById('lineDist').textContent = Math.round(Math.abs(d));
+    }
+  }
+
+  renderTimer();
+
+  // Knoten (das ganze Feld ist bereits per Zone eingefärbt)
+  document.getElementById('speedBadgeVal').textContent = sog!==null ? sog.toFixed(1) : '–';
+
+  // Kompassuhr: Ring (Striche + N/O/S/W) dreht sich mit dem Kurs, Bug bleibt fest oben.
+  // Wind-/Scheinbarwind-Pfeile werden relativ zum eigenen Kurs gezeichnet (Heading-up).
+  // "refHdg" berücksichtigt die Montage: am Arm wird der GPS-Kurs statt der Rohkompassrichtung genutzt.
+  const ringRotation = refHdg!==null ? -refHdg : 0;
+  document.getElementById('compassRing').setAttribute('transform', `rotate(${ringRotation} 50 50)`);
+  document.querySelectorAll('.cardinal-label').forEach(g=>{
+    const tx = g.dataset.tx, ty = g.dataset.ty;
+    const counter = refHdg!==null ? refHdg : 0;
+    g.setAttribute('transform', `translate(${tx},${ty}) rotate(${counter})`);
+  });
+  if(windRef!==null){
+    const relTrue = refHdg!==null ? ((windRef - refHdg + 360) % 360) : windRef;
+    document.getElementById('trueArrow').setAttribute('transform', `rotate(${relTrue} 50 50)`);
+  }
+  const app = computeApparentWind();
+  if(app){
+    const relApp = refHdg!==null ? ((app.fromDeg - refHdg + 360) % 360) : app.fromDeg;
+    document.getElementById('appArrow').setAttribute('transform', `rotate(${relApp} 50 50)`);
+  }
+}
+function trackTackInc(){ tackCount++; document.getElementById('tackCount').textContent = tackCount; }
+function trackGybeInc(){ gybeCount++; document.getElementById('gybeCount').textContent = gybeCount; }
+let tackCount = 0, gybeCount = 0;
+
+/* ================= Kurskarte =================
+   Zwei Modi:
+   1) "Echtkarte" (Leaflet + OpenStreetMap-Kacheln) – zeigt Küste/Land, frei
+      zoom- und verschiebbar, braucht aber eine Internetverbindung zum Laden
+      der Kachelbilder (einmal geladene Kacheln werden vom Service Worker
+      für später offline zwischengespeichert).
+   2) Eigene Vektor-Karte (Canvas) – funktioniert komplett offline, rechnet
+      GPS-Positionen lokal in Meter um. Automatischer Rückfall, wenn kein
+      Internet verfügbar ist oder die Kacheln nicht laden.
+   Beide Modi zeigen: Startlinie, Luvtonne, aktuellen Track (Speed-Farbverlauf
+   rot→gelb→grün), Live-Position und optional frühere gespeicherte Läufe. */
+
+const mapCanvas = document.getElementById('mapCanvas');
+const mapCtx = mapCanvas.getContext('2d');
+const windOverlayCanvas = document.getElementById('windOverlayCanvas');
+const windOverlayCtx = windOverlayCanvas.getContext('2d');
+const leafletMapEl = document.getElementById('leafletMap');
+
+let windArrowsEnabled = true;
+const windArrowsChip = document.getElementById('windArrowsChip');
+function setWindArrowsEnabled(v){
+  windArrowsEnabled = v;
+  windArrowsChip.classList.toggle('active', v);
+  try{ localStorage.setItem('segelcomp_windArrowsEnabled', v ? '1' : '0'); }catch(e){}
+}
+windArrowsChip.addEventListener('click', ()=> setWindArrowsEnabled(!windArrowsEnabled));
+
+/* ---- Modus: Echtkarte vs. eigene Offline-Karte ---- */
+let useRealMap = true; // Wunsch des Nutzers; die tatsächlich aktive Ansicht haengt zusaetzlich davon ab, ob Leaflet/Kacheln verfuegbar sind
+const realMapChip = document.getElementById('realMapChip');
+function leafletAvailable(){ return typeof L !== 'undefined'; }
+function realMapActive(){ return useRealMap && leafletAvailable(); }
+function setUseRealMap(v){
+  useRealMap = v;
+  realMapChip.classList.toggle('active', v);
+  try{ localStorage.setItem('segelcomp_useRealMap', v ? '1' : '0'); }catch(e){}
+  applyMapMode();
+}
+realMapChip.addEventListener('click', ()=>{
+  if(!leafletAvailable() && !useRealMap){
+    showToast('Echtkarte braucht einmal Internet zum Laden der Kartenkacheln.');
+  }
+  setUseRealMap(!useRealMap);
+});
+function applyMapMode(){
+  const real = realMapActive();
+  leafletMapEl.style.display = real ? 'block' : 'none';
+  mapCanvas.style.display = real ? 'none' : 'block';
+  windOverlayCanvas.style.display = real ? 'block' : 'none';
+  document.getElementById('mapModeLabel').textContent = real
+    ? 'Kurskarte · OpenStreetMap'
+    : 'Kurskarte · eigene Vektor-Ansicht (offline)';
+  if(real){
+    ensureLeafletMap();
+    setTimeout(()=>{ if(leafletMap){ leafletMap.invalidateSize(); fitLeafletBounds(); } }, 30);
+  }
+  resizeMapCanvas();
+}
+
+function themeColor(name, fallback){
+  try{
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }catch(e){ return fallback; }
+}
+function metersPerDegLat(){ return 111320; }
+function metersPerDegLon(lat){ return 111320 * Math.cos(lat*Math.PI/180); }
+function toLocalXY(ref, p){
+  return {
+    x: (p.lon - ref.lon) * metersPerDegLon(ref.lat),
+    y: (p.lat - ref.lat) * metersPerDegLat()
+  };
+}
+function speedToColor(sog, maxSog){
+  const t = Math.max(0, Math.min(1, (sog||0)/maxSog));
+  return `hsl(${Math.round(t*120)}, 85%, 50%)`; // 0=rot, 60=gelb, 120=gruen
+}
+function runMaxSog(track){ return Math.max(4, ...track.map(p=>p.sog||0)); }
+
+function resizeMapCanvas(){
+  const rect = mapCanvas.getBoundingClientRect();
+  if(rect.width===0 || rect.height===0) return;
+  const dpr = window.devicePixelRatio || 1;
+  [mapCanvas, windOverlayCanvas].forEach(c=>{
+    c.width = Math.max(1, Math.round(rect.width*dpr));
+    c.height = Math.max(1, Math.round(rect.height*dpr));
+  });
+  if(leafletMap) leafletMap.invalidateSize();
+}
+window.addEventListener('resize', resizeMapCanvas);
+
+/* ---- Manueller Zoom/Pan für die Offline-Vektor-Karte ---- */
+let mapUserScale = 1, mapUserOffset = {x:0,y:0};
+function canvasZoomBy(factor){
+  mapUserScale = Math.max(0.3, Math.min(14, mapUserScale*factor));
+}
+function canvasResetView(){ mapUserScale = 1; mapUserOffset = {x:0,y:0}; }
+(function wireCanvasDragPan(){
+  let dragging=false, lastX=0, lastY=0;
+  mapCanvas.addEventListener('pointerdown', (e)=>{
+    dragging=true; lastX=e.clientX; lastY=e.clientY; mapCanvas.setPointerCapture(e.pointerId);
+  });
+  mapCanvas.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    const dpr = window.devicePixelRatio||1;
+    mapUserOffset.x += (e.clientX-lastX)*dpr;
+    mapUserOffset.y += (e.clientY-lastY)*dpr;
+    lastX=e.clientX; lastY=e.clientY;
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>mapCanvas.addEventListener(ev, ()=>{ dragging=false; }));
+  mapCanvas.addEventListener('wheel', (e)=>{
+    if(realMapActive()) return;
+    e.preventDefault();
+    canvasZoomBy(e.deltaY < 0 ? 1.15 : 1/1.15);
+  }, {passive:false});
+})();
+document.getElementById('mapZoomIn').addEventListener('click', ()=>{
+  if(realMapActive()){ if(leafletMap) leafletMap.zoomIn(); } else canvasZoomBy(1.3);
+});
+document.getElementById('mapZoomOut').addEventListener('click', ()=>{
+  if(realMapActive()){ if(leafletMap) leafletMap.zoomOut(); } else canvasZoomBy(1/1.3);
+});
+document.getElementById('mapZoomFit').addEventListener('click', ()=>{
+  if(realMapActive()) fitLeafletBounds(); else canvasResetView();
+});
+
+/* ---- Frühere Läufe auf der Karte einblenden ---- */
+let overlaySelectedIds = new Set();
+function persistOverlaySelection(){
+  try{ localStorage.setItem('segelcomp_overlayRuns', JSON.stringify([...overlaySelectedIds])); }catch(e){}
+}
+function loadOverlaySelection(){
+  try{
+    const raw = JSON.parse(localStorage.getItem('segelcomp_overlayRuns') || '[]');
+    overlaySelectedIds = new Set(raw);
+  }catch(e){ overlaySelectedIds = new Set(); }
+}
+function renderOverlayRunList(){
+  const runs = getSavedRuns();
+  const list = document.getElementById('overlayRunList');
+  if(runs.length === 0){
+    list.innerHTML = '<div class="panel-hint">Noch keine gespeicherten Läufe zum Einblenden.</div>';
+    return;
+  }
+  list.innerHTML = runs.slice().reverse().map(r=>{
+    const checked = overlaySelectedIds.has(r.id) ? 'checked' : '';
+    return `<div class="log-item" style="align-items:center;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; flex:1;">
+        <input type="checkbox" class="overlay-run-cb" data-id="${r.id}" ${checked} style="width:17px; height:17px;">
+        <span>${r.name} · ${r.track.length} Pkt</span>
+      </label>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.overlay-run-cb').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const id = cb.dataset.id;
+      if(cb.checked){ overlaySelectedIds.add(id); addRunOverlayToLeaflet(id); }
+      else { overlaySelectedIds.delete(id); removeRunOverlayFromLeaflet(id); }
+      persistOverlaySelection();
+    });
+  });
+}
+
+/* ---- Leaflet: echte Karte ---- */
+let leafletMap = null;
+let llLineLayer, llBoatMark, llPinMark, llMarkMark, llLiveMark, llCurrentTrack;
+let llTrackSegCount = 0;
+const llOverlayLayers = {}; // runId -> L.LayerGroup
+function ensureLeafletMap(){
+  if(leafletMap || !leafletAvailable()) return;
+  leafletMap = L.map('leafletMap', { zoomControl:false, attributionControl:false }).setView([54.32,10.14], 12);
+  L.control.attribution({ position:'bottomleft', prefix:false }).addTo(leafletMap);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap-Mitwirkende'
+  }).addTo(leafletMap);
+  llCurrentTrack = L.layerGroup().addTo(leafletMap);
+  redrawLeafletStatics();
+  overlaySelectedIds.forEach(id=>addRunOverlayToLeaflet(id));
+}
+function llCircle(latlon, color, label){
+  const m = L.circleMarker([latlon.lat, latlon.lon], { radius:7, color:'#00000066', weight:1.5, fillColor:color, fillOpacity:0.95 });
+  if(label) m.bindTooltip(label, { permanent:true, direction:'right', offset:[8,0], className:'llTooltip' });
+  return m;
+}
+function redrawLeafletStatics(){
+  if(!leafletMap) return;
+  [llLineLayer, llBoatMark, llPinMark, llMarkMark].forEach(l=>{ if(l) leafletMap.removeLayer(l); });
+  llLineLayer=llBoatMark=llPinMark=llMarkMark=null;
+  if(lineBoat && linePin){
+    llLineLayer = L.polyline([[lineBoat.lat,lineBoat.lon],[linePin.lat,linePin.lon]], { color: themeColor('--text','#EAF3F2'), weight:2.5, dashArray:'6,5' }).addTo(leafletMap);
+    llBoatMark = llCircle(lineBoat, '#3A86FF', 'Boot').addTo(leafletMap);
+    llPinMark = llCircle(linePin, '#3A86FF', 'Pin').addTo(leafletMap);
+  } else if(lineBoat){
+    llBoatMark = llCircle(lineBoat, '#3A86FF', 'Boot').addTo(leafletMap);
+  }
+  if(markPos){
+    llMarkMark = llCircle(markPos, '#FFB703', 'Luv').addTo(leafletMap);
+  }
+}
+function updateLeafletLive(){
+  if(!leafletMap || !pos) return;
+  if(!llLiveMark){
+    llLiveMark = L.circleMarker([pos.lat,pos.lon], { radius:7, color:'#00000066', weight:1.5, fillColor: themeColor('--amber','#FFB703'), fillOpacity:1 }).addTo(leafletMap);
+  } else {
+    llLiveMark.setLatLng([pos.lat, pos.lon]);
+  }
+}
+function leafletPushNewTrackSegment(){
+  if(!leafletMap || trackLog.length < 2) return;
+  const i = trackLog.length-1;
+  const a = trackLog[i-1], b = trackLog[i];
+  const avgSog = ((a.sog||0)+(b.sog||0))/2;
+  L.polyline([[a.lat,a.lon],[b.lat,b.lon]], { color: speedToColor(avgSog, runMaxSog(trackLog)), weight:4, opacity:0.95 }).addTo(llCurrentTrack);
+  llTrackSegCount = trackLog.length;
+}
+function leafletClearCurrentTrack(){
+  if(llCurrentTrack) llCurrentTrack.clearLayers();
+  llTrackSegCount = 0;
+}
+function addRunOverlayToLeaflet(id){
+  if(!leafletMap || llOverlayLayers[id]) return;
+  const run = getSavedRuns().find(r=>r.id===id);
+  if(!run) return;
+  const grp = L.layerGroup().addTo(leafletMap);
+  const maxSog = runMaxSog(run.track);
+  for(let i=1;i<run.track.length;i++){
+    const a=run.track[i-1], b=run.track[i];
+    const avgSog = ((a.sog||0)+(b.sog||0))/2;
+    L.polyline([[a.lat,a.lon],[b.lat,b.lon]], { color: speedToColor(avgSog,maxSog), weight:3, opacity:0.55 }).addTo(grp);
+  }
+  llOverlayLayers[id] = grp;
+}
+function removeRunOverlayFromLeaflet(id){
+  if(llOverlayLayers[id]){ leafletMap.removeLayer(llOverlayLayers[id]); delete llOverlayLayers[id]; }
+}
+function fitLeafletBounds(){
+  if(!leafletMap) return;
+  const pts = [];
+  if(lineBoat) pts.push([lineBoat.lat,lineBoat.lon]);
+  if(linePin) pts.push([linePin.lat,linePin.lon]);
+  if(markPos) pts.push([markPos.lat,markPos.lon]);
+  if(pos) pts.push([pos.lat,pos.lon]);
+  trackLog.forEach(p=>pts.push([p.lat,p.lon]));
+  overlaySelectedIds.forEach(id=>{
+    const run = getSavedRuns().find(r=>r.id===id);
+    if(run) run.track.forEach(p=>pts.push([p.lat,p.lon]));
+  });
+  if(pts.length === 0) return;
+  if(pts.length === 1){ leafletMap.setView(pts[0], 16); return; }
+  leafletMap.fitBounds(L.latLngBounds(pts), { padding:[26,26] });
+}
+
+/* ---- Zeichenfunktionen für die eigene Offline-Vektor-Karte ---- */
+function drawMarker(ctx, cx, cy, color, label, dpr){
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(cx,cy,5*dpr,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1*dpr; ctx.stroke();
+  ctx.fillStyle = themeColor('--text','#EAF3F2');
+  ctx.font = `700 ${11*dpr}px Inter, sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, cx+8*dpr, cy);
+}
+function drawWindArrow(ctx, x,y,dirRad,size){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(dirRad);
+  ctx.beginPath();
+  ctx.moveTo(0,-size); ctx.lineTo(size*0.38, size*0.55); ctx.lineTo(0, size*0.2); ctx.lineTo(-size*0.38, size*0.55);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawWindField(ctx, W, H, dpr){
+  if(!(windArrowsEnabled && windRef!==null)) return;
+  const dirRad = (windRef+180) * Math.PI/180; // Richtung, in die der Wind weht
+  const spacing = 88*dpr;
+  const flowSpeed = 24*dpr;
+  const phase = (performance.now()/1000 * flowSpeed) % spacing;
+  ctx.fillStyle = 'rgba(255,183,3,0.55)';
+  for(let gx=-spacing; gx<W+spacing; gx+=spacing){
+    for(let gy=-spacing; gy<H+spacing; gy+=spacing){
+      const ax = gx + phase*Math.sin(dirRad);
+      const ay = gy - phase*Math.cos(dirRad);
+      drawWindArrow(ctx, ax, ay, dirRad, 10*dpr);
+    }
+  }
+}
+function drawScaleBar(scale, dpr, W, H){
+  const targetPx = 90*dpr;
+  const options = [5,10,20,25,50,100,200,250,500,1000,2000];
+  let meters = options[0];
+  for(const m of options){ meters = m; if(m*scale >= targetPx) break; }
+  const barPx = meters*scale;
+  const x0 = 14*dpr, y0 = H-14*dpr;
+  mapCtx.strokeStyle = themeColor('--text','#EAF3F2');
+  mapCtx.lineWidth = 2*dpr;
+  mapCtx.beginPath(); mapCtx.moveTo(x0,y0); mapCtx.lineTo(x0+barPx,y0); mapCtx.stroke();
+  mapCtx.fillStyle = themeColor('--text','#EAF3F2');
+  mapCtx.font = `${10.5*dpr}px Inter, sans-serif`;
+  mapCtx.textAlign = 'left'; mapCtx.textBaseline = 'alphabetic';
+  mapCtx.fillText(meters+' m', x0, y0-5*dpr);
+}
+function drawOfflineMap(){
+  if(mapCanvas.width < 2 || mapCanvas.height < 2) resizeMapCanvas();
+  const W = mapCanvas.width, H = mapCanvas.height;
+  if(W < 2 || H < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+
+  mapCtx.clearRect(0,0,W,H);
+  mapCtx.fillStyle = themeColor('--panel-2', '#123040');
+  mapCtx.fillRect(0,0,W,H);
+
+  const overlayRuns = [...overlaySelectedIds].map(id=>getSavedRuns().find(r=>r.id===id)).filter(Boolean);
+
+  const pts = [];
+  trackLog.forEach(p=>pts.push(p));
+  overlayRuns.forEach(r=>r.track.forEach(p=>pts.push(p)));
+  if(lineBoat) pts.push(lineBoat);
+  if(linePin) pts.push(linePin);
+  if(markPos) pts.push(markPos);
+  if(pos) pts.push(pos);
+
+  if(pts.length === 0){
+    mapCtx.fillStyle = themeColor('--dim', '#6F98A3');
+    mapCtx.font = `${13*dpr}px Inter, sans-serif`;
+    mapCtx.textAlign = 'center'; mapCtx.textBaseline = 'middle';
+    mapCtx.fillText('Noch keine Positionsdaten', W/2, H/2);
+    return;
+  }
+
+  const ref = lineBoat || pts[0];
+  const xy = pts.map(p=>toLocalXY(ref, p));
+  let minX=Math.min(...xy.map(p=>p.x)), maxX=Math.max(...xy.map(p=>p.x));
+  let minY=Math.min(...xy.map(p=>p.y)), maxY=Math.max(...xy.map(p=>p.y));
+  const MIN_HALF = 25;
+  if(maxX-minX < MIN_HALF*2){ const c=(minX+maxX)/2; minX=c-MIN_HALF; maxX=c+MIN_HALF; }
+  if(maxY-minY < MIN_HALF*2){ const c=(minY+maxY)/2; minY=c-MIN_HALF; maxY=c+MIN_HALF; }
+  const padX=(maxX-minX)*0.14, padY=(maxY-minY)*0.14;
+  minX-=padX; maxX+=padX; minY-=padY; maxY+=padY;
+  const baseScale = Math.min(W/(maxX-minX), H/(maxY-minY));
+  const scale = baseScale * mapUserScale;
+  const originX = W/2 - ((minX+maxX)/2)*scale + mapUserOffset.x;
+  const originY = H/2 + ((minY+maxY)/2)*scale + mapUserOffset.y;
+  function toCanvas(p){
+    const l = toLocalXY(ref, p);
+    return { cx: originX + l.x*scale, cy: originY - l.y*scale };
+  }
+
+  // Distanzraster
+  const targetPx = 70*dpr;
+  const stepsMeters = [5,10,20,25,50,100,200,250,500,1000,2000];
+  let gridStep = stepsMeters[0];
+  for(const s of stepsMeters){ gridStep = s; if(s*scale >= targetPx) break; }
+  mapCtx.strokeStyle = themeColor('--line', '#1D3D4C');
+  mapCtx.lineWidth = 1*dpr;
+  mapCtx.beginPath();
+  const gxStart = Math.floor((-originX/scale));
+  for(let gx=Math.floor(minX/gridStep)*gridStep - gridStep*3; gx<=maxX+gridStep*3; gx+=gridStep){
+    const cx = originX + gx*scale; if(cx<0||cx>W) continue; mapCtx.moveTo(cx,0); mapCtx.lineTo(cx,H);
+  }
+  for(let gy=Math.floor(minY/gridStep)*gridStep - gridStep*3; gy<=maxY+gridStep*3; gy+=gridStep){
+    const cy = originY - gy*scale; if(cy<0||cy>H) continue; mapCtx.moveTo(0,cy); mapCtx.lineTo(W,cy);
+  }
+  mapCtx.stroke();
+
+  drawWindField(mapCtx, W, H, dpr);
+
+  // Frühere Läufe (gedimmt), unter der aktuellen Fahrt
+  overlayRuns.forEach(r=>{
+    if(r.track.length<2) return;
+    const maxSog = runMaxSog(r.track);
+    for(let i=1;i<r.track.length;i++){
+      const p0=toCanvas(r.track[i-1]), p1=toCanvas(r.track[i]);
+      const avgSog=((r.track[i-1].sog||0)+(r.track[i].sog||0))/2;
+      mapCtx.strokeStyle = speedToColor(avgSog, maxSog);
+      mapCtx.globalAlpha = 0.5;
+      mapCtx.lineWidth = 3*dpr; mapCtx.lineCap='round';
+      mapCtx.beginPath(); mapCtx.moveTo(p0.cx,p0.cy); mapCtx.lineTo(p1.cx,p1.cy); mapCtx.stroke();
+    }
+    mapCtx.globalAlpha = 1;
+  });
+
+  // Startlinie
+  if(lineBoat && linePin){
+    const a = toCanvas(lineBoat), b = toCanvas(linePin);
+    mapCtx.setLineDash([6*dpr,5*dpr]);
+    mapCtx.strokeStyle = themeColor('--text', '#EAF3F2');
+    mapCtx.lineWidth = 2.5*dpr;
+    mapCtx.beginPath(); mapCtx.moveTo(a.cx,a.cy); mapCtx.lineTo(b.cx,b.cy); mapCtx.stroke();
+    mapCtx.setLineDash([]);
+    drawMarker(mapCtx, a.cx, a.cy, '#3A86FF', 'Boot', dpr);
+    drawMarker(mapCtx, b.cx, b.cy, '#3A86FF', 'Pin', dpr);
+  } else if(lineBoat){
+    const a = toCanvas(lineBoat);
+    drawMarker(mapCtx, a.cx, a.cy, '#3A86FF', 'Boot', dpr);
+  }
+
+  // Luvtonne
+  if(markPos){
+    const m = toCanvas(markPos);
+    drawMarker(mapCtx, m.cx, m.cy, '#FFB703', 'Luv', dpr);
+  }
+
+  // Aktueller Track, farbcodiert nach Geschwindigkeit (rot = langsam … grün = schnell)
+  if(trackLog.length > 1){
+    const maxSog = runMaxSog(trackLog);
+    for(let i=1;i<trackLog.length;i++){
+      const p0 = toCanvas(trackLog[i-1]), p1 = toCanvas(trackLog[i]);
+      const avgSog = ((trackLog[i-1].sog||0) + (trackLog[i].sog||0))/2;
+      mapCtx.strokeStyle = speedToColor(avgSog, maxSog);
+      mapCtx.lineWidth = 3.5*dpr;
+      mapCtx.lineCap = 'round';
+      mapCtx.beginPath(); mapCtx.moveTo(p0.cx,p0.cy); mapCtx.lineTo(p1.cx,p1.cy); mapCtx.stroke();
+    }
+    document.getElementById('speedLegendMax').textContent = maxSog.toFixed(1)+' kn';
+  } else {
+    document.getElementById('speedLegendMax').textContent = '–';
+  }
+
+  // Live-Bootsposition (Dreieck in Fahrtrichtung)
+  if(pos){
+    const b = toCanvas(pos);
+    const hdg = referenceHeading();
+    mapCtx.save();
+    mapCtx.translate(b.cx, b.cy);
+    if(hdg!==null) mapCtx.rotate(hdg*Math.PI/180);
+    mapCtx.fillStyle = themeColor('--amber', '#FFB703');
+    mapCtx.strokeStyle = 'rgba(0,0,0,0.4)'; mapCtx.lineWidth = 1*dpr;
+    mapCtx.beginPath();
+    mapCtx.moveTo(0,-10*dpr); mapCtx.lineTo(6.5*dpr,8*dpr); mapCtx.lineTo(-6.5*dpr,8*dpr);
+    mapCtx.closePath(); mapCtx.fill(); mapCtx.stroke();
+    mapCtx.restore();
+  }
+
+  drawScaleBar(scale, dpr, W, H);
+}
+function drawRealMapWindOverlay(){
+  const W = windOverlayCanvas.width, H = windOverlayCanvas.height;
+  if(W<2||H<2) return;
+  const dpr = window.devicePixelRatio||1;
+  windOverlayCtx.clearRect(0,0,W,H);
+  drawWindField(windOverlayCtx, W, H, dpr);
+}
+function drawMap(){
+  if(!views[viewIdx] || views[viewIdx].id !== 'view-map') return; // nur zeichnen, wenn Tab sichtbar (spart Akku)
+  if(realMapActive()){
+    if(leafletMap){ updateLeafletLive(); }
+    if(windArrowsEnabled) drawRealMapWindOverlay();
+    else { windOverlayCtx.clearRect(0,0,windOverlayCanvas.width,windOverlayCanvas.height); }
+  } else {
+    drawOfflineMap();
+  }
+}
+// Eigene Animationsschleife (nur aktiv, solange der Karten-Tab sichtbar ist),
+// damit die Windpfeile flüssig "fließen" statt im 300-ms-Takt zu ruckeln.
+function mapAnimLoop(){
+  drawMap();
+  requestAnimationFrame(mapAnimLoop);
+}
+requestAnimationFrame(mapAnimLoop);
+
+setInterval(renderLoop, SAMPLE_MS);
+renderTimer();
+updateWindBtnLabel();
+
+/* ---- Initiales Laden gespeicherter Referenzpunkte, Läufe & Kartenmodus ---- */
+loadRefPoints();
+setRecordingActive(false);
+updateLineStepLabel();
+loadOverlaySelection();
+renderSavedRunsList();
+renderOverlayRunList();
+(function initWindArrowsToggle(){
+  let v=null;
+  try{ v = localStorage.getItem('segelcomp_windArrowsEnabled'); }catch(e){}
+  setWindArrowsEnabled(v===null ? true : v==='1');
+})();
+(function initRealMapToggle(){
+  let v=null;
+  try{ v = localStorage.getItem('segelcomp_useRealMap'); }catch(e){}
+  useRealMap = (v===null ? true : v==='1');
+  realMapChip.classList.toggle('active', useRealMap);
+  applyMapMode();
+})();
+setTimeout(resizeMapCanvas, 0);
+
+/* ---- Service Worker: ermöglicht Offline-Start (App-Shell aus Cache) ---- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

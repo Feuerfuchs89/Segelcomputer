@@ -2021,7 +2021,11 @@ function speedToColor(sog, maxSog){
 function runMaxSog(track){ return Math.max(4, ...track.map(p=>p.sog||0)); }
 
 function resizeMapCanvas(){
-  const rect = mapCanvas.getBoundingClientRect();
+  // Am mapStage bemessen, nicht an mapCanvas: in der Echtkarten-Ansicht ist mapCanvas
+  // per display:none ausgeblendet und läge mit 0x0 da - dann bekäme auch das
+  // Windpfeil-Overlay (windOverlayCanvas), das über der Echtkarte liegt, nie seine
+  // echte Pixelgröße und bliebe auf der Browser-Standardgröße (300x150) hängen.
+  const rect = mapStageEl.getBoundingClientRect();
   if(rect.width===0 || rect.height===0) return;
   const dpr = window.devicePixelRatio || 1;
   [mapCanvas, windOverlayCanvas].forEach(c=>{

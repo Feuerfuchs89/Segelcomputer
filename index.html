@@ -2231,7 +2231,16 @@ function drawWindArrow(ctx, x,y,dirRad,size){
   ctx.rotate(dirRad);
   ctx.beginPath();
   ctx.moveTo(0,-size); ctx.lineTo(size*0.38, size*0.55); ctx.lineTo(0, size*0.2); ctx.lineTo(-size*0.38, size*0.55);
-  ctx.closePath(); ctx.fill();
+  ctx.closePath();
+  // Dunkler Halo-Rand zuerst: ohne den geht der zuvor rein transparent gefüllte
+  // Pfeil auf hellen/bunten Echtkarten-Kacheln (OSM: helle Flächen, orange Straßen)
+  // optisch unter - auf dem dunklen Offline-Hintergrund fiel das kaum auf, weil der
+  // Kontrast dort ohnehin hoch war. Mit Rand + mehr Deckkraft ist er auf jedem
+  // Hintergrund erkennbar.
+  ctx.lineWidth = Math.max(1, size*0.22);
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.stroke();
+  ctx.fill();
   ctx.restore();
 }
 function drawWindField(ctx, W, H, dpr){
@@ -2240,12 +2249,12 @@ function drawWindField(ctx, W, H, dpr){
   const spacing = 88*dpr;
   const flowSpeed = 24*dpr;
   const phase = (performance.now()/1000 * flowSpeed) % spacing;
-  ctx.fillStyle = 'rgba(255,183,3,0.55)';
+  ctx.fillStyle = 'rgba(255,183,3,0.92)';
   for(let gx=-spacing; gx<W+spacing; gx+=spacing){
     for(let gy=-spacing; gy<H+spacing; gy+=spacing){
       const ax = gx + phase*Math.sin(dirRad);
       const ay = gy - phase*Math.cos(dirRad);
-      drawWindArrow(ctx, ax, ay, dirRad, 10*dpr);
+      drawWindArrow(ctx, ax, ay, dirRad, 11*dpr);
     }
   }
 }

@@ -700,13 +700,26 @@ document.addEventListener('visibilitychange', async ()=>{
    damit das jeweilige Element (und ggf. Kinder) sich im Vollbild anders layouten können. */
 function makeDoubleTapFullscreen(el, fullscreenClass, opts){
   opts = opts || {};
-  let lastTap = 0;
-  el.addEventListener('click', (e)=>{
-    if(opts.ignoreSelector && e.target.closest(opts.ignoreSelector)) return;
+  let lastTapTime = 0, downX=0, downY=0, downT=0, tracking=false;
+  // Capture-Phase statt 'click': Leaflet (Echtkarte) behandelt Tipp-Gesten intern für
+  // eigenes Pan/Zoom und verhindert dabei teils, dass ein synthetisches 'click'-Event
+  // überhaupt entsteht bzw. bis zu diesem Element durchbubbelt. Auf pointerdown/-up in
+  // der Capture-Phase zu lauschen (am Element selbst, oberhalb der Leaflet-Kindknoten)
+  // bekommt die Geste garantiert mit, unabhängig davon, was Leaflet danach damit macht.
+  el.addEventListener('pointerdown', (e)=>{
+    if(opts.ignoreSelector && e.target.closest(opts.ignoreSelector)) { tracking=false; return; }
+    tracking = true; downX = e.clientX; downY = e.clientY; downT = Date.now();
+  }, true);
+  el.addEventListener('pointerup', (e)=>{
+    if(!tracking) return;
+    tracking = false;
+    const dt = Date.now() - downT;
+    const dist = Math.hypot(e.clientX-downX, e.clientY-downY);
+    if(dt > 400 || dist > 14) return; // Drag/Pan statt echtem Tipp -> nicht werten
     const now = Date.now();
-    if(now - lastTap < 350){ toggle(); lastTap = 0; }
-    else{ lastTap = now; }
-  });
+    if(now - lastTapTime < 400){ toggle(); lastTapTime = 0; }
+    else{ lastTapTime = now; }
+  }, true);
   function toggle(){
     const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
     if(fsEl !== el){

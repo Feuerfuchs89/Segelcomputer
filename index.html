@@ -190,6 +190,21 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 .wind-zone.zone-fullscreen .zone-sub{ font-size: 15px; }
 .wind-zone.zone-fullscreen .arrow-legend{ font-size: 13px; }
 
+/* ---------- Karte: Vollbild per Doppel-Tap, mit Start-Countdown-Overlay ---------- */
+#mapStage.map-fullscreen{ width:100vw; height:100vh; background: var(--bg); }
+#mapCountdownOverlay{
+  display:none;
+  position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  font-family:'Space Grotesk', sans-serif; font-weight:700;
+  font-size: 15px; color: var(--text); letter-spacing:0.02em;
+  background: rgba(0,0,0,0.38); padding: 4px 14px; border-radius: 10px;
+  pointer-events:none; z-index:450; font-variant-numeric: tabular-nums;
+}
+#mapStage.map-fullscreen #mapCountdownOverlay{
+  display:block; font-size: 40px; padding: 8px 26px;
+  top: max(16px, env(safe-area-inset-top));
+}
+
 /* Taktik view */
 .big-metric{ display:flex; align-items:baseline; justify-content:space-between; }
 .big-metric .data-val{ font-size: 30px; }
@@ -474,6 +489,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           <div id="leafletMap" style="position:absolute; inset:0; display:none;"></div>
           <canvas id="mapCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:block;"></canvas>
           <canvas id="windOverlayCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:none; pointer-events:none;"></canvas>
+          <div id="mapCountdownOverlay">05:00</div>
           <div id="mapZoomCtrls" style="position:absolute; right:8px; bottom:8px; display:flex; flex-direction:column; gap:6px; z-index:500;">
             <div class="ctrl-btn small ghost" id="mapZoomIn" style="flex:none; padding:8px 12px; background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3);">+</div>
             <div class="ctrl-btn small ghost" id="mapZoomOut" style="flex:none; padding:8px 12px; background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3);">–</div>
@@ -485,6 +501,11 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           <div style="flex:1; height:7px; border-radius:4px; background:linear-gradient(90deg,#E63946,#FFD400,#1DB954);"></div>
           <span style="font-size:10px; color:var(--dim); font-weight:700; letter-spacing:.03em;">SCHNELL <span id="speedLegendMax">–</span></span>
         </div>
+      </div>
+      <div class="panel" id="mapBiasPanel">
+        <div class="panel-label">Startlinienvorteil</div>
+        <div class="big-metric"><span class="data-val" id="mapBiasVal">–</span><span class="data-unit" id="mapBiasUnit"> °</span></div>
+        <div class="panel-hint" id="mapBiasHint">Startlinie noch nicht gesetzt.</div>
       </div>
       <div class="ctrl-btn" id="recordToggleBtn" style="text-align:center;">⏺ Aufzeichnung starten</div>
       <div class="panel-hint" id="recordStatusHint">Aufzeichnung pausiert – es werden gerade keine Trackpunkte geloggt.</div>
@@ -673,35 +694,53 @@ document.addEventListener('visibilitychange', async ()=>{
   }
 });
 
-/* ---- Vollbild bei Doppel-Tap aufs farbige Feld (nochmal 2x Tap = zurück) ---- */
-const windZoneEl = document.getElementById('windZone');
-function toggleZoneFullscreen(){
-  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-  if(!fsEl){
-    const req = windZoneEl.requestFullscreen || windZoneEl.webkitRequestFullscreen;
-    if(!req){ showToast('Vollbild wird von diesem Browser nicht unterstützt.'); return; }
-    req.call(windZoneEl).catch(err=>{
-      showToast(!window.isSecureContext
-        ? 'Vollbild in diesem Kontext blockiert – als lokale Datei (file://) oft nicht möglich. Über HTTPS/localhost testen.'
-        : 'Vollbild aktuell nicht möglich: ' + err.message);
-    });
-  } else {
-    const exit = document.exitFullscreen || document.webkitExitFullscreen;
-    if(exit) exit.call(document).catch(()=>{});
+/* ---- Vollbild bei Doppel-Tap (nochmal 2x Tap = zurück) ----
+   Generischer Helfer, genutzt für die Windzone und für die Kurskarte. Pro Element
+   wird per Fullscreen-API umgeschaltet; eine eigene CSS-Klasse markiert den Zustand,
+   damit das jeweilige Element (und ggf. Kinder) sich im Vollbild anders layouten können. */
+function makeDoubleTapFullscreen(el, fullscreenClass, opts){
+  opts = opts || {};
+  let lastTap = 0;
+  el.addEventListener('click', (e)=>{
+    if(opts.ignoreSelector && e.target.closest(opts.ignoreSelector)) return;
+    const now = Date.now();
+    if(now - lastTap < 350){ toggle(); lastTap = 0; }
+    else{ lastTap = now; }
+  });
+  function toggle(){
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if(fsEl !== el){
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if(!req){ showToast('Vollbild wird von diesem Browser nicht unterstützt.'); return; }
+      req.call(el).catch(err=>{
+        showToast(!window.isSecureContext
+          ? 'Vollbild in diesem Kontext blockiert – als lokale Datei (file://) oft nicht möglich. Über HTTPS/localhost testen.'
+          : 'Vollbild aktuell nicht möglich: ' + err.message);
+      });
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if(exit) exit.call(document).catch(()=>{});
+    }
   }
+  function sync(){
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    el.classList.toggle(fullscreenClass, fsEl === el);
+    if(opts.onChange) opts.onChange(fsEl === el);
+  }
+  document.addEventListener('fullscreenchange', sync);
+  document.addEventListener('webkitfullscreenchange', sync);
 }
-let lastZoneTap = 0;
-windZoneEl.addEventListener('click', ()=>{
-  const now = Date.now();
-  if(now - lastZoneTap < 350){ toggleZoneFullscreen(); lastZoneTap = 0; }
-  else{ lastZoneTap = now; }
+const windZoneEl = document.getElementById('windZone');
+makeDoubleTapFullscreen(windZoneEl, 'zone-fullscreen');
+
+const mapStageEl = document.getElementById('mapStage');
+makeDoubleTapFullscreen(mapStageEl, 'map-fullscreen', {
+  ignoreSelector: '#mapZoomCtrls',
+  onChange: ()=>{
+    // Canvas-/Leaflet-Abmessungen ändern sich mit dem Vollbild-Wechsel
+    requestAnimationFrame(()=>{ resizeMapCanvas(); if(leafletMap) leafletMap.invalidateSize(); });
+  }
 });
-function syncZoneFullscreenClass(){
-  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-  windZoneEl.classList.toggle('zone-fullscreen', fsEl === windZoneEl);
-}
-document.addEventListener('fullscreenchange', syncZoneFullscreenClass);
-document.addEventListener('webkitfullscreenchange', syncZoneFullscreenClass);
 
 function currentProfile(){ return PROFILES[activeProfileIdx]; }
 function currentAngles(){ return currentProfile().angles[windStrength]; }
@@ -1163,7 +1202,12 @@ function beep(freq=880, dur=120){
 let timerSeconds = 5*60, timerRunning = false, timerInterval = null;
 const timerNum = document.getElementById('timerNum'), timerSub = document.getElementById('timerSub'), timerFace = document.getElementById('timerFace');
 function formatTime(s){ const sign = s<0?'-':''; s=Math.abs(s); return sign+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
-function renderTimer(){ timerNum.textContent = formatTime(timerSeconds); timerSub.textContent = timerRunning ? (timerSeconds<=0?'GESTARTET':'Countdown läuft') : 'Bereit'; }
+function renderTimer(){
+  timerNum.textContent = formatTime(timerSeconds);
+  timerSub.textContent = timerRunning ? (timerSeconds<=0?'GESTARTET':'Countdown läuft') : 'Bereit';
+  const mapCountdownEl = document.getElementById('mapCountdownOverlay');
+  if(mapCountdownEl) mapCountdownEl.textContent = formatTime(timerSeconds);
+}
 const TIMER_MARK_SECONDS = [180, 60, 30]; // 3:00, 1:00, 30 sec
 function flashTimerFace(dur){
   timerFace.classList.add('flash');
@@ -1651,6 +1695,30 @@ function setView(idx){
 }
 tabs.forEach((t,i)=>t.addEventListener('click', ()=>setView(i)));
 
+/* ---- Zwischen den Tabs wischen (links/rechts) ----
+   Auf dem Haupt-Inhaltsbereich; die Kartenansicht hat ihr eigenes Wischen zum
+   Verschieben/Zoomen der Karte, daher wird dort (und auf den Zoom-Buttons) nicht
+   eingegriffen. Ein Wisch zählt nur, wenn er überwiegend horizontal, schnell genug
+   und weit genug ist - langsames/vertikales Scrollen in Panels & Listen bleibt unberührt. */
+(function wireSwipeTabs(){
+  const mainEl = document.querySelector('main');
+  const SWIPE_MIN_PX = 60, SWIPE_MAX_VERTICAL_PX = 60, SWIPE_MAX_MS = 600;
+  let startX=0, startY=0, startT=0, tracking=false;
+  mainEl.addEventListener('pointerdown', (e)=>{
+    if(e.target.closest('#mapStage')) { tracking = false; return; }
+    tracking = true; startX = e.clientX; startY = e.clientY; startT = Date.now();
+  });
+  mainEl.addEventListener('pointerup', (e)=>{
+    if(!tracking) return;
+    tracking = false;
+    const dx = e.clientX - startX, dy = e.clientY - startY, dt = Date.now() - startT;
+    if(dt > SWIPE_MAX_MS) return;
+    if(Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dy) > SWIPE_MAX_VERTICAL_PX) return;
+    setView(viewIdx + (dx < 0 ? 1 : -1));
+  });
+  mainEl.addEventListener('pointercancel', ()=>{ tracking = false; });
+})();
+
 document.getElementById('btnStart').addEventListener('click', startStopTimer);
 document.getElementById('btnMode').addEventListener('click', ()=>setView(viewIdx+1));
 document.getElementById('btnWind').addEventListener('click', ()=>{
@@ -1758,7 +1826,14 @@ function renderLoop(){
       logOverstand(Math.abs(diff), distM, brg);
     }
     lastLaylineState = laylineState;
-    document.getElementById('markDist').textContent = 'Distanz zur Luvtonne: ' + Math.round(distM) + ' m · Peilung ' + Math.round(brg) + '°';
+    // ETA bei aktuellem Kurs/Speed: nur die Geschwindigkeitskomponente in Richtung
+    // Tonne (VMC) zählt, nicht die volle SOG - sonst wäre die Zeit bei schrägem Kurs zu optimistisch.
+    let etaText = '';
+    if(sog!==null && course!==null){
+      const vmc = sog * Math.cos(toRad(angleDiff(course, brg)));
+      if(vmc > 0.1){ etaText = ' · ETA ' + formatTime(Math.round(distM / (vmc*0.5144))); }
+    }
+    document.getElementById('markDist').textContent = 'Distanz zur Luvtonne: ' + Math.round(distM) + ' m · Peilung ' + Math.round(brg) + '°' + etaText;
   } else {
     lastLaylineState = null;
   }
@@ -1769,15 +1844,26 @@ function renderLoop(){
     const squareBearing = windRef!==null ? (windRef+90)%360 : null;
     if(squareBearing!==null){
       const bias = angleDiff(lineBearing, squareBearing);
-      document.getElementById('biasNum').textContent = Math.round(Math.abs(bias))+'°';
-      document.getElementById('biasLabel').textContent = Math.abs(bias)<3
-        ? 'Linie ist quasi quadratisch zum Wind'
-        : (bias>0 ? 'Pin-Ende favorisiert' : 'Boot-Ende favorisiert');
+      const biasAbs = Math.round(Math.abs(bias));
+      const favored = Math.abs(bias)<3 ? null : (bias>0 ? 'Pin-Ende' : 'Boot-Ende');
+      const biasLabelText = favored===null ? 'Linie ist quasi quadratisch zum Wind' : (favored+' favorisiert');
+      document.getElementById('biasNum').textContent = biasAbs+'°';
+      document.getElementById('biasLabel').textContent = biasLabelText;
+      // dasselbe zusätzlich kompakt auf der Kartenansicht, ohne Tab-Wechsel
+      document.getElementById('mapBiasVal').textContent = biasAbs;
+      document.getElementById('mapBiasHint').textContent = favored===null
+        ? 'Quasi quadratisch zum Wind.'
+        : (favored+' favorisiert – dort starten bringt Vorteil.');
     }
     if(pos){
       const d = crossTrackDist(lineBoat, linePin, pos);
       document.getElementById('lineDist').textContent = Math.round(Math.abs(d));
     }
+  } else {
+    document.getElementById('mapBiasVal').textContent = '–';
+    document.getElementById('mapBiasHint').textContent = lineBoat
+      ? 'Pin-Ende noch nicht gepingt.'
+      : 'Startlinie noch nicht gesetzt.';
   }
 
   renderTimer();
@@ -1882,6 +1968,39 @@ function toLocalXY(ref, p){
     y: (p.lat - ref.lat) * metersPerDegLat()
   };
 }
+function fromLocalXY(ref, xy){
+  return {
+    lat: ref.lat + xy.y/metersPerDegLat(),
+    lon: ref.lon + xy.x/metersPerDegLon(ref.lat)
+  };
+}
+/* ================= Kursprojektion zur Startlinie =================
+   Verlängert den aktuellen Kurs (effectiveCourse) geradlinig nach vorn und
+   berechnet, ob/wo er die Startlinie (lineBoat–linePin) schneiden würde.
+   state:
+     'onLine'   – Schnittpunkt liegt zwischen Boot- und Pin-Ende -> auf Kurs zur Linie
+     'offLine'  – Schnittpunkt liegt außerhalb der Linie (würde ein Ende verfehlen)
+     'away'     – Schnittpunkt liegt hinter dem Boot (Kurs führt von der Linie weg)
+     'parallel' – Kurs praktisch parallel zur Linie, kein sinnvoller Schnittpunkt */
+function computeCourseLineProjection(){
+  if(!lineBoat || !linePin || !pos) return null;
+  const course = effectiveCourse();
+  if(course === null) return null;
+  const d = toLocalXY(lineBoat, linePin);   // Linienvektor, lineBoat = Ursprung
+  const b = toLocalXY(lineBoat, pos);       // Bootsposition relativ zu lineBoat
+  const courseRad = toRad(course);
+  const c = { x: Math.sin(courseRad), y: Math.cos(courseRad) }; // Kurs-Einheitsvektor (Ost/Nord)
+  const det = c.x*d.y - c.y*d.x;
+  if(Math.abs(det) < 1e-6) return { state:'parallel' };
+  const t = (c.x*b.y - c.y*b.x) / det; // Position auf der Linie: 0=Boot-Ende, 1=Pin-Ende
+  const s = (d.x*b.y - d.y*b.x) / det; // Distanz (m) vom Boot entlang des Kurses bis zum Schnittpunkt
+  if(s <= 0) return { state:'away', t, s };
+  const state = (t>=0 && t<=1) ? 'onLine' : 'offLine';
+  const hitLocal = { x: b.x + s*c.x, y: b.y + s*c.y };
+  const hitPos = fromLocalXY(lineBoat, hitLocal);
+  return { state, t, s, hitPos };
+}
+const COURSE_PROJ_COLORS = { onLine:'#1DB954', offLine:'#F4A300' };
 function speedToColor(sog, maxSog){
   const t = Math.max(0, Math.min(1, (sog||0)/maxSog));
   return `hsl(${Math.round(t*120)}, 85%, 50%)`; // 0=rot, 60=gelb, 120=gruen
@@ -1974,12 +2093,12 @@ function renderOverlayRunList(){
 
 /* ---- Leaflet: echte Karte ---- */
 let leafletMap = null;
-let llLineLayer, llBoatMark, llPinMark, llMarkMark, llLiveMark, llCurrentTrack;
+let llLineLayer, llBoatMark, llPinMark, llMarkMark, llLiveMark, llCurrentTrack, llCourseProjLine;
 let llTrackSegCount = 0;
 const llOverlayLayers = {}; // runId -> L.LayerGroup
 function ensureLeafletMap(){
   if(leafletMap || !leafletAvailable()) return;
-  leafletMap = L.map('leafletMap', { zoomControl:false, attributionControl:false }).setView([54.32,10.14], 12);
+  leafletMap = L.map('leafletMap', { zoomControl:false, attributionControl:false, doubleClickZoom:false }).setView([54.32,10.14], 12);
   L.control.attribution({ position:'bottomleft', prefix:false }).addTo(leafletMap);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -2016,6 +2135,19 @@ function updateLeafletLive(){
   } else {
     llLiveMark.setLatLng([pos.lat, pos.lon]);
   }
+  updateLeafletCourseProjection();
+}
+/* Aktueller Kurs bis zur Startlinie (grün = trifft zwischen Boot/Pin, orange = verfehlt
+   ein Ende) – wird jeden Frame neu gezeichnet, ist aber eine simple Linie, daher günstig. */
+function updateLeafletCourseProjection(){
+  if(llCourseProjLine){ leafletMap.removeLayer(llCourseProjLine); llCourseProjLine = null; }
+  if(!lineBoat || !linePin || !pos) return;
+  const proj = computeCourseLineProjection();
+  if(!proj || (proj.state!=='onLine' && proj.state!=='offLine')) return;
+  llCourseProjLine = L.polyline(
+    [[pos.lat,pos.lon],[proj.hitPos.lat,proj.hitPos.lon]],
+    { color: COURSE_PROJ_COLORS[proj.state], weight:3, dashArray:'2,6' }
+  ).addTo(leafletMap);
 }
 function leafletPushNewTrackSegment(){
   if(!leafletMap || trackLog.length < 2) return;
@@ -2204,6 +2336,21 @@ function drawOfflineMap(){
   } else if(lineBoat){
     const a = toCanvas(lineBoat);
     drawMarker(mapCtx, a.cx, a.cy, '#3A86FF', 'Boot', dpr);
+  }
+
+  // Aktueller Kurs bis zur Startlinie, grün eingefärbt wenn er zwischen Boot- und
+  // Pin-Ende treffen würde (optimaler Startkurs), orange wenn er die Linie verfehlt.
+  // Führt der Kurs von der Linie weg oder liegt fast parallel dazu, wird nichts gezeichnet.
+  if(lineBoat && linePin && pos){
+    const proj = computeCourseLineProjection();
+    if(proj && (proj.state==='onLine' || proj.state==='offLine')){
+      const p0 = toCanvas(pos), p1 = toCanvas(proj.hitPos);
+      mapCtx.strokeStyle = COURSE_PROJ_COLORS[proj.state];
+      mapCtx.lineWidth = 3*dpr; mapCtx.lineCap = 'round';
+      mapCtx.setLineDash([2*dpr, 4*dpr]);
+      mapCtx.beginPath(); mapCtx.moveTo(p0.cx,p0.cy); mapCtx.lineTo(p1.cx,p1.cy); mapCtx.stroke();
+      mapCtx.setLineDash([]);
+    }
   }
 
   // Luvtonne

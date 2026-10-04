@@ -257,7 +257,11 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 .llTooltip::before{ border-right-color: var(--panel) !important; }
 .leaflet-control-attribution{ background: rgba(7,24,34,0.65) !important; color: var(--dim) !important; font-size:9.5px !important; }
 .leaflet-control-attribution a{ color: var(--dim) !important; }
-#leafletMap{ background: var(--panel-2); }
+/* Eigener Stapelkontext nötig: ohne z-index hier würden Leaflets interne Ebenen
+   (Kacheln/Marker/Popups, intern z-index bis 700) aus diesem Container "ausbrechen"
+   und über windOverlayCanvas liegen, obwohl das im DOM danach kommt. */
+#leafletMap{ background: var(--panel-2); z-index: 1; }
+#windOverlayCanvas{ z-index: 2; }
 </style>
 </head>
 <!-- Leaflet: nur für den optionalen "Echtkarte"-Modus (OpenStreetMap-Kacheln, braucht Internet).

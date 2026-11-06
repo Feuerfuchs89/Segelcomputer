@@ -1412,18 +1412,60 @@ function setDot(id, ok, warn){
 /* ================= Sensor-Gate ================= */
 let gpsEnabled = true;
 let watchId = null;
+let demoMode = false;      // simulierte Position NUR, wenn „Ohne Sensoren (Demo)“ gewählt wurde
+let staleChecked = false;
+let lastGpsErrCode = null;
 
+/* Beim ersten echten GPS-Fix: Gespeicherten See / Bahn / Linie verwerfen, wenn sie weit
+   (> 5 km) vom echten Standort entfernt liegen – sonst bleibt alles am alten Ort hängen. */
+function checkStaleData(){
+  if(staleChecked || !pos) return;
+  staleChecked = true;
+  const FAR = 5000, far = p => p && haversineDist(pos, p) > FAR;
+  const cleared = [];
+  if(lake && lake.ref && far(lake.ref)){ setLake(null, true); cleared.push('See'); }
+  if(far(lineBoat) || far(linePin) || far(markPos) || (course.marks||[]).some(far)){ clearCourse(); cleared.push('Bahn'); }
+  if(cleared.length){
+    bahnRedraw();
+    showToast('Gespeicherte(r) '+cleared.join(' & ')+' lag weit weg von deinem Standort – zurückgesetzt.');
+  }
+  if(realMapActive()) fitLeafletBounds();
+}
+
+let watchIdLow = null;
+function onGeoPos(p){
+  gpsOk = true; setDot('gpsDot', true);
+  // Ungenaue Netzwerk-Position (WLAN/Mobilfunk) nicht über eine vorhandene genaue GPS-Position schreiben
+  const acc = p.coords.accuracy;
+  if(pos && pos._acc != null && acc != null && acc > 200 && pos._acc <= 200 && (Date.now()-(pos._t||0)) < 15000) return;
+  pos = { lat: p.coords.latitude, lon: p.coords.longitude, _acc: acc, _t: Date.now() };
+  lastGpsErrCode = null;
+  if(p.coords.speed != null) rawSog = p.coords.speed * 1.94384;
+  if(p.coords.heading != null && !isNaN(p.coords.heading)) rawCog = p.coords.heading;
+  checkStaleData();
+}
+function onGeoErr(err){
+  if(gpsOk) return;   // es gibt schon eine Position – Fehler des anderen Kanals ignorieren
+  setDot('gpsDot', false, true);
+  if(err.code !== lastGpsErrCode){
+    lastGpsErrCode = err.code;
+    const m = { 1:'Standortzugriff verweigert – bitte in den Browser-/Geräte-Einstellungen erlauben.',
+                2:'Kein Standort verfügbar.', 3:'Standortsuche dauert länger – suche weiter …' };
+    showToast('GPS: ' + (m[err.code] || 'Fehler') + (window.isSecureContext ? '' : ' (Seite nicht per HTTPS geöffnet!)'));
+  }
+}
+/* Zwei Kanäle wie bei Google Maps: genaues GPS (Satelliten, draußen) UND Netzwerk-Standort
+   (WLAN/Mobilfunk, funktioniert auch in der Wohnung). Wer zuerst liefert, setzt die Position. */
 function startGeoWatch(){
   if(!('geolocation' in navigator)) return;
-  watchId = navigator.geolocation.watchPosition(p=>{
-    gpsOk = true; setDot('gpsDot', true);
-    pos = { lat: p.coords.latitude, lon: p.coords.longitude };
-    if(p.coords.speed != null) rawSog = p.coords.speed * 1.94384;
-    if(p.coords.heading != null && !isNaN(p.coords.heading)) rawCog = p.coords.heading;
-  }, ()=> setDot('gpsDot', false, true), { enableHighAccuracy:true, maximumAge:1000 });
+  if(watchId != null) return;
+  watchId = navigator.geolocation.watchPosition(onGeoPos, onGeoErr, { enableHighAccuracy:true, maximumAge:1000, timeout:20000 });
+  navigator.geolocation.getCurrentPosition(onGeoPos, onGeoErr, { enableHighAccuracy:false, maximumAge:120000, timeout:15000 });
+  watchIdLow = navigator.geolocation.watchPosition(onGeoPos, ()=>{}, { enableHighAccuracy:false, maximumAge:30000, timeout:30000 });
 }
 function stopGeoWatch(){
   if(watchId != null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if(watchIdLow != null){ navigator.geolocation.clearWatch(watchIdLow); watchIdLow = null; }
   gpsOk = false;
   rawSog = null; rawCog = null;
   setDot('gpsDot', false, false);
@@ -1450,6 +1492,8 @@ document.getElementById('grantBtn').addEventListener('click', async ()=>{
   startDemoFallback();
 });
 document.getElementById('skipBtn').addEventListener('click', ()=>{
+  demoMode = true;
+  if(gpsEnabled) startGeoWatch();   // echtes GPS wird trotzdem versucht und ersetzt die Demo-Position
   document.getElementById('gate').style.display = 'none';
   startDemoFallback();
 });
@@ -1482,13 +1526,16 @@ function startDemoFallback(){
       if(!cmpOk) manualHeading = heading;
       rawCog = heading;
       rawSog = 4.5 + Math.sin(Date.now()/4000)*0.6;
-      // simulierte Position (nur für Demo-Distanzen): Cospudener See
-      if(!pos) pos = { lat: 51.2705, lon: 12.3395 };
-      const metersPerDeg = 111320;
-      pos = {
-        lat: pos.lat + (rawSog*0.5144*SAMPLE_MS/1000)*Math.cos(heading*Math.PI/180)/metersPerDeg,
-        lon: pos.lon + (rawSog*0.5144*SAMPLE_MS/1000)*Math.sin(heading*Math.PI/180)/(metersPerDeg*Math.cos(pos.lat*Math.PI/180))
-      };
+      // simulierte Position (nur im ausdrücklich gewählten Demo-Modus): Cospudener See.
+      // Sonst bleibt pos leer, bis ein echter GPS-Fix da ist.
+      if(demoMode){
+        if(!pos) pos = { lat: 51.2705, lon: 12.3395 };
+        const metersPerDeg = 111320;
+        pos = {
+          lat: pos.lat + (rawSog*0.5144*SAMPLE_MS/1000)*Math.cos(heading*Math.PI/180)/metersPerDeg,
+          lon: pos.lon + (rawSog*0.5144*SAMPLE_MS/1000)*Math.sin(heading*Math.PI/180)/(metersPerDeg*Math.cos(pos.lat*Math.PI/180))
+        };
+      }
     }
   }, SAMPLE_MS);
 }

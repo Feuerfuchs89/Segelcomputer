@@ -237,6 +237,11 @@ function readCourseForm(){
 }
 function autoCourse(keepCenter){
   readCourseForm();
+  // Gespeicherter See weit weg vom echten Standort? Dann nicht dort auslegen.
+  if(lake && lake.ref && pos && !demoMode && haversineDist(pos, lake.ref) > 3000){
+    setLake(null, true);
+    showToast('Gespeicherter See ist weit weg – Bahn wird ab deinem Standort ausgelegt („See laden“ für Uferprüfung).');
+  }
   if(windRef===null){ showToast('Erst Wind setzen: Quelle „Internet“, „Manuell“ oder Wind pingen.'); return; }
   const ax = axisVectors(windRef);
   const ref = lake ? lake.ref : (pos || (leafletMap ? {lat:leafletMap.getCenter().lat, lon:leafletMap.getCenter().lng} : null));

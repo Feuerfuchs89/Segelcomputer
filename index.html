@@ -524,6 +524,12 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
   <div id="secureWarning" style="display:none; background:var(--red); color:#fff; font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
     Unsichere Verbindung (kein https) – Browser blockiert GPS/Kompass. Display-wach-halten &amp; Vollbild funktionieren evtl. auch nicht. Demo-Daten aktiv.
   </div>
+  <div id="gpsDenied" style="display:none; background:#E63946; color:#fff; font-size:12.5px; font-weight:600; padding:10px 16px; line-height:1.45;">
+    <b>Standort ist für diese Seite blockiert.</b><br>
+    1) Tippe in der Adressleiste links auf das Symbol neben der Adresse (oder ⋮ → ⓘ) → <b>Berechtigungen → Standort → Zulassen</b>.<br>
+    2) Falls das nicht hilft: Android-Einstellungen → Apps → Chrome → Berechtigungen → Standort → „Nur bei Nutzung“ + „Genauen Standort verwenden“.<br>
+    <button id="gpsRetryBtn" style="margin-top:6px; padding:6px 14px; border-radius:10px; border:0; font-weight:700;">Erneut versuchen</button>
+  </div>
   <div id="sensorWarning" style="display:none; background:var(--orange); color:var(--ink); font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
     Keine echten Sensordaten empfangen – Demo-Daten aktiv, bis GPS/Kompass antworten.
   </div>
@@ -1434,7 +1440,7 @@ function checkStaleData(){
 
 let watchIdLow = null;
 function onGeoPos(p){
-  gpsOk = true; setDot('gpsDot', true);
+  gpsOk = true; setDot('gpsDot', true); showGpsDenied(false);
   // Ungenaue Netzwerk-Position (WLAN/Mobilfunk) nicht über eine vorhandene genaue GPS-Position schreiben
   const acc = p.coords.accuracy;
   if(pos && pos._acc != null && acc != null && acc > 200 && pos._acc <= 200 && (Date.now()-(pos._t||0)) < 15000) return;
@@ -1444,9 +1450,26 @@ function onGeoPos(p){
   if(p.coords.heading != null && !isNaN(p.coords.heading)) rawCog = p.coords.heading;
   checkStaleData();
 }
+function showGpsDenied(on){ const el = document.getElementById('gpsDenied'); if(el) el.style.display = on ? 'block' : 'none'; }
+function restartGeo(){
+  if(watchId != null){ try{ navigator.geolocation.clearWatch(watchId); }catch(e){} watchId = null; }
+  if(watchIdLow != null){ try{ navigator.geolocation.clearWatch(watchIdLow); }catch(e){} watchIdLow = null; }
+  lastGpsErrCode = null;
+  if(gpsEnabled) startGeoWatch();
+}
+document.addEventListener('click', e=>{ if(e.target && e.target.id === 'gpsRetryBtn'){ showGpsDenied(false); restartGeo(); } });
+/* Wenn der Nutzer die Berechtigung in den Einstellungen ändert, sofort neu starten */
+try{
+  if(navigator.permissions && navigator.permissions.query){
+    navigator.permissions.query({name:'geolocation'}).then(st=>{
+      st.onchange = ()=>{ if(st.state === 'granted' || st.state === 'prompt'){ showGpsDenied(false); restartGeo(); } else if(st.state === 'denied'){ showGpsDenied(true); } };
+    }).catch(()=>{});
+  }
+}catch(e){}
 function onGeoErr(err){
   if(gpsOk) return;   // es gibt schon eine Position – Fehler des anderen Kanals ignorieren
   setDot('gpsDot', false, true);
+  if(err.code === 1) showGpsDenied(true);
   if(err.code !== lastGpsErrCode){
     lastGpsErrCode = err.code;
     const m = { 1:'Standortzugriff verweigert – bitte in den Browser-/Geräte-Einstellungen erlauben.',

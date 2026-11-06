@@ -347,7 +347,7 @@ function bahnTick(){
     }
     const sub = `${Math.round(info.dist)} m · Peilung ${Math.round(info.brg)}°` + (lay ? ' · '+lay : '');
     if(navSub) navSub.textContent = sub;
-    if(chip){ chip.style.display = 'block'; chip.textContent = `→ ${t.name} ${Math.round(info.dist)} m` + (info.diff!==undefined && Math.abs(info.diff)<=3 ? ' · LAYLINE' : ''); }
+    if(chip){ chip.style.display = 'block'; chip.textContent = (courseView ? courseViewChipText(t, info) : `→ ${t.name} ${Math.round(info.dist)} m`) + (info.diff!==undefined && Math.abs(info.diff)<=3 ? ' · LAYLINE' : ''); }
     detectRounding(t, info.dist);
   }
   checkWindShift();
@@ -416,14 +416,22 @@ function setMapTool(mode){
   mapToolMode = (mapToolMode===mode) ? null : mode;
   document.getElementById('toolMark').classList.toggle('active', mapToolMode==='tonne');
   document.getElementById('toolRuler').classList.toggle('active', mapToolMode==='lineal');
+  document.getElementById('toolMove').classList.toggle('active', mapToolMode==='bahn');
   const hint = document.getElementById('mapToolHint');
   hint.style.display = mapToolMode ? 'block' : 'none';
   hint.textContent = mapToolMode==='tonne' ? 'Tippe auf die Karte, um eine Tonne zu setzen. Tonnen lassen sich ziehen; Tippen auf eine Tonne → löschen / als Ziel.'
-                   : mapToolMode==='lineal' ? 'Tippe Punkte auf die Karte – Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.' : '';
+                   : mapToolMode==='lineal' ? 'Tippe Punkte auf die Karte – Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.'
+                   : mapToolMode==='bahn' ? 'Ganze Bahn verschieben: am ✥ in der Bahnmitte ziehen oder auf die Karte tippen – die Bahn springt dorthin. Ausrichtung zum Wind bleibt.' : '';
+  if(mapToolMode==='bahn' && !allCoursePoints().length){ showToast('Noch keine Bahn – erst „Automatisch auslegen“ oder Tonnen setzen.'); }
+  bahnDrawMoveHandle();
   if(mapToolMode==='lineal' && course.ruler.length>=2){ course.ruler = []; persistCourse(); bahnRedraw(); }
   if(mapToolMode && !realMapActive()) showToast('Setzen & Messen geht auf der Echtkarte (🌐). Die Offline-Karte zeigt alles an.');
 }
 function onMapTap(lat, lon){
+  if(mapToolMode==='bahn'){
+    const c = courseCenter(); if(!c) return;
+    shiftCourse(lat - c.lat, lon - c.lon); finishCourseMove(); return;
+  }
   if(mapToolMode==='tonne'){
     const n = course.marks.filter(m=>m.kind==='frei').length + 1;
     const m = { id:'f'+Date.now(), kind:'frei', name:'Tonne '+n, lat, lon };
@@ -445,6 +453,55 @@ function targetMark(id){
   if(i>=0){ course.act = i; roundState = { inside:false, minDist:1e9 }; persistCourse(); bahnRedraw(); bahnTick(); }
 }
 function setCourseHint(t){ const el = document.getElementById('crsHint'); if(el) el.textContent = t; }
+
+/* ---------------- Ganze Bahn verschieben ---------------- */
+function allCoursePoints(){
+  const pts = [lineBoat, linePin, markPos].filter(Boolean);
+  course.marks.forEach(m=>pts.push(m));
+  return pts;
+}
+function courseCenter(){
+  const pts = allCoursePoints(); if(!pts.length) return null;
+  return { lat: pts.reduce((a,p)=>a+p.lat,0)/pts.length, lon: pts.reduce((a,p)=>a+p.lon,0)/pts.length };
+}
+/* Alle Bahnpunkte um denselben Versatz schieben (bei < 2 km reicht Grad-Addition) */
+function shiftCourse(dLat, dLon){
+  const mv = p=>{ if(p){ p.lat += dLat; p.lon += dLon; } };
+  mv(lineBoat); mv(linePin); mv(markPos);
+  course.marks.forEach(mv);
+}
+/* Nach dem Verschieben: speichern, neu zeichnen, Abstand zum Ufer prüfen */
+function finishCourseMove(){
+  lastLaylineState = null; roundState = { inside:false, minDist:1e9 }; lastFinishSide = null;
+  persistRefPoints(); persistCourse(); redrawLeafletStatics(); bahnRedraw(); bahnDrawMoveHandle();
+  if(!lakeXY){ setCourseHint('Bahn verschoben (kein Ufer geladen – keine Prüfung, ob alles auf dem Wasser liegt).'); return; }
+  const named = [[lineBoat,'Startschiff'],[linePin,'Pin'],[markPos,'Luvtonne'], ...course.marks.map(m=>[m,m.name])].filter(x=>x[0]);
+  let worst = null;
+  for(const [p,n] of named){
+    const q = toLocalXY(lake.ref, p), d = waterClearance(q.x, q.y);
+    if(!worst || d < worst.d) worst = { d, n };
+  }
+  if(worst.d < 0){ setCourseHint(`⚠️ ${worst.n} liegt an Land oder auf einer Insel – Bahn weiter aufs Wasser schieben.`); vibrate(200); }
+  else if(worst.d < 30) setCourseHint(`⚠️ ${worst.n} nur ${Math.round(worst.d)} m vom Ufer – knapp.`);
+  else setCourseHint(`Bahn verschoben · alle Tonnen auf dem Wasser · min. ${Math.round(worst.d)} m Abstand (${worst.n}).`);
+}
+let llMoveHandle = null;
+function bahnDrawMoveHandle(){
+  if(!leafletMap) return;
+  if(llMoveHandle){ leafletMap.removeLayer(llMoveHandle); llMoveHandle = null; }
+  if(mapToolMode!=='bahn') return;
+  const c = courseCenter(); if(!c) return;
+  llMoveHandle = L.marker([c.lat, c.lon], { draggable:true, autoPan:true, zIndexOffset:1000,
+    icon:L.divIcon({ className:'move-wrap', iconSize:[46,46], iconAnchor:[23,23], html:'<div class="move-handle">✥</div>' }) }).addTo(leafletMap);
+  let last = null;
+  llMoveHandle.on('dragstart', ()=>{ const q = llMoveHandle.getLatLng(); last = { lat:q.lat, lon:q.lng }; });
+  llMoveHandle.on('drag', ()=>{
+    const q = llMoveHandle.getLatLng();
+    shiftCourse(q.lat - last.lat, q.lng - last.lon); last = { lat:q.lat, lon:q.lng };
+    redrawLeafletStatics(); bahnDrawLeaflet();
+  });
+  llMoveHandle.on('dragend', finishCourseMove);
+}
 
 /* ---------------- Zeichnen: Leaflet ---------------- */
 let llBahn = null, llBahnDyn = null;
@@ -599,6 +656,7 @@ function bahnInit(){
   });
   document.getElementById('toolMark').addEventListener('click', ()=>setMapTool('tonne'));
   document.getElementById('toolRuler').addEventListener('click', ()=>setMapTool('lineal'));
+  document.getElementById('toolMove').addEventListener('click', ()=>setMapTool('bahn'));
   document.getElementById('toolRulerClear').addEventListener('click', ()=>{ course.ruler = []; persistCourse(); bahnRedraw(); });
   document.getElementById('navPrev').addEventListener('click', ()=>stepTarget(-1));
   document.getElementById('navNext').addEventListener('click', ()=>stepTarget(1));

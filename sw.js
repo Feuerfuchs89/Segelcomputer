@@ -8,7 +8,7 @@
  * Kartenansicht auch offline weiter.
  */
 
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v11';
 const APP_SHELL_CACHE = `segelcomp-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `segelcomp-runtime-${CACHE_VERSION}`;
 
@@ -21,6 +21,7 @@ const APP_SHELL_FILES = [
   './uhr.js',
   './dreher.js',
   './tasche.js',
+  './bahnansicht.js',
   './favicon-16.png',
   './favicon-32.png',
   './apple-touch-icon.png',

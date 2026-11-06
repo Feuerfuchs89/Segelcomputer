@@ -270,6 +270,8 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 .buoy-lbl{ position:absolute; left:20px; top:0; white-space:nowrap; font:700 11px 'Inter',sans-serif; color:var(--text);
   background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:1px 5px; pointer-events:none; }
 .ruler-tip{ white-space:nowrap; }
+.move-handle{ width:46px; height:46px; border-radius:50%; background:rgba(255,183,3,0.92); color:#071822; border:3px solid #fff;
+  display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; box-shadow:0 2px 10px rgba(0,0,0,0.45); }
 .ruler-tip::before{ display:none; }
 .llPopup{ font:600 12.5px 'Inter',sans-serif; display:flex; flex-direction:column; gap:6px; min-width:140px; }
 .llPopup button{ padding:7px 10px; border-radius:8px; border:1px solid #ccc; background:#f4f4f4; font-weight:700; }
@@ -410,10 +412,21 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
         <li><b>🧭 Automatisch auslegen:</b> Bahnform, Kreuzlänge, Runden und Bootszahl wählen. Die Bahn wird nach dem aktuellen Wind ausgerichtet und mit größtmöglichem Abstand zu Ufer und Inseln auf den See gelegt. Ist der See zu klein, wird die Kreuz gekürzt.</li>
         <li><b>↻ Nach Wind drehen:</b> dreht die Bahn um die Startlinie auf den aktuellen Wind. Bei 10° Winddrehung oder mehr erscheint ein Hinweis zum Antippen.</li>
         <li><b>＋ Tonne:</b> antippen, dann auf die Karte tippen. Tonnen (auch Startschiff, Pin und Luv) lassen sich verschieben. Eine Tonne antippen → löschen oder als nächstes Ziel.</li>
+        <li><b>✥ Bahn:</b> verschiebt die ganze Bahn. Am gelben ✥ in der Bahnmitte ziehen, oder auf die Karte tippen, dann springt die Bahn dorthin. Die Ausrichtung zum Wind bleibt. Danach prüft die App, ob alle Tonnen auf dem Wasser liegen, und warnt, wenn eine an Land oder zu nah am Ufer liegt.</li>
         <li><b>📏 Lineal:</b> Punkte antippen → Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.</li>
         <li>Rote gestrichelte Linien sind die <b>Laylines</b> der aktiven Tonne. Gerundete Tonnen erkennt die App selbst und schaltet zur nächsten weiter. Das Ziel ist die Startlinie.</li>
         <li>Setzen und Messen geht nur auf der Echtkarte (🌐). Die Offline-Karte zeigt alles nur an.</li>
       </ul>
+    </div></details>
+
+    <details><summary>Bahnansicht „Ziel oben“ & Lineal</summary><div>
+      Karte → <b>🧭 Ziel oben</b>. Die Karte dreht sich so, dass das <b>nächste Ziel immer oben</b> liegt. Auf der Kreuz ist das die Luvtonne, vorm Wind die Leetonne. Die Ausrichtung folgt dem Schenkel und bleibt ruhig, auch beim Kreuzen.
+      <ul>
+        <li><b>Lineal:</b> Linien alle 50 m quer zum Wind, ausgehend von der Tonne (gelbe Linie). Wer auf derselben Linie liegt, ist gleich weit in Luv. Jede zweite Linie ist mit dem Abstand zur Tonne beschriftet.</li>
+        <li>Oben steht dein Abstand <b>in Windrichtung</b> zur Tonne, z. B. „230 m in Luv (4,6 Sprossen)“. Diese Zahl kannst du mit Booten neben dir vergleichen.</li>
+        <li>Blauer Pfeil = Wind, „N“ = Norden. + / – zoomen, FIT = automatischer Ausschnitt.</li>
+      </ul>
+      <span class="muted">Die App kennt nur dein eigenes Boot. Die anderen Boote siehst du auf dem Wasser, nicht auf der Karte.</span>
     </div></details>
 
     <details><summary>Uhr</summary><div>
@@ -686,6 +699,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           <div style="display:flex; gap:6px;">
             <div class="chip active" id="realMapChip" style="padding:5px 10px;">🌐 Echtkarte</div>
             <div class="chip active" id="windArrowsChip" style="padding:5px 10px;">💨 Wind</div>
+            <div class="chip" id="courseViewChip" style="padding:5px 10px;">🧭 Ziel oben</div>
           </div>
         </div>
         <div id="mapStage" style="position:relative; flex:1; width:100%; overflow:hidden;">
@@ -696,6 +710,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           <div id="mapToolbar">
             <div class="chip" id="toolMark">＋ Tonne</div>
             <div class="chip" id="toolRuler">📏 Lineal</div>
+            <div class="chip" id="toolMove">✥ Bahn</div>
             <div class="chip" id="toolRulerClear" style="display:none;">Lineal ✕</div>
           </div>
           <div id="mapNavChip"></div>
@@ -803,6 +818,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 <script src="uhr.js"></script>
 <script src="dreher.js"></script>
 <script src="tasche.js"></script>
+<script src="bahnansicht.js"></script>
 <script>
 if(!window.isSecureContext){
   document.getElementById('secureWarning').style.display = 'block';
@@ -991,7 +1007,7 @@ makeDoubleTapFullscreen(windZoneEl, 'zone-fullscreen');
 
 const mapStageEl = document.getElementById('mapStage');
 makeDoubleTapFullscreen(mapStageEl, 'map-fullscreen', {
-  ignoreSelector: '#mapZoomCtrls, #mapToolbar, #mapNavChip, .leaflet-marker-icon, .leaflet-popup',
+  ignoreSelector: '#mapZoomCtrls, #mapToolbar, #mapNavChip, .leaflet-marker-icon, .leaflet-popup, .move-wrap',
   blocked: ()=> !!mapToolMode,
   onChange: ()=>{
     // Canvas-/Leaflet-Abmessungen ändern sich mit dem Vollbild-Wechsel
@@ -2230,7 +2246,7 @@ windArrowsChip.addEventListener('click', ()=> setWindArrowsEnabled(!windArrowsEn
 let useRealMap = true; // Wunsch des Nutzers; die tatsächlich aktive Ansicht haengt zusaetzlich davon ab, ob Leaflet/Kacheln verfuegbar sind
 const realMapChip = document.getElementById('realMapChip');
 function leafletAvailable(){ return typeof L !== 'undefined'; }
-function realMapActive(){ return useRealMap && leafletAvailable(); }
+function realMapActive(){ return useRealMap && leafletAvailable() && !courseView; }
 function setUseRealMap(v){
   useRealMap = v;
   realMapChip.classList.toggle('active', v);
@@ -2248,8 +2264,9 @@ function applyMapMode(){
   leafletMapEl.style.display = real ? 'block' : 'none';
   mapCanvas.style.display = real ? 'none' : 'block';
   windOverlayCanvas.style.display = real ? 'block' : 'none';
-  document.getElementById('mapModeLabel').textContent = real
-    ? 'Kurskarte · OpenStreetMap'
+  document.getElementById('mapModeLabel').textContent = courseView
+    ? 'Bahnansicht · Ziel oben · Lineal 50 m'
+    : real ? 'Kurskarte · OpenStreetMap'
     : 'Kurskarte · eigene Vektor-Ansicht (offline)';
   if(real){
     ensureLeafletMap();
@@ -2728,6 +2745,8 @@ function drawMap(){
     if(leafletMap){ updateLeafletLive(); if(!pos) bahnDrawLeafletDyn(); }
     if(windArrowsEnabled) drawRealMapWindOverlay();
     else { windOverlayCtx.clearRect(0,0,windOverlayCanvas.width,windOverlayCanvas.height); }
+  } else if(courseView){
+    drawCourseView();
   } else {
     drawOfflineMap();
   }
@@ -2757,6 +2776,7 @@ bahnInit();
 uhrInit();
 pocketInit();
 helpInit();
+courseViewInit();
 document.getElementById('shiftResetBtn').addEventListener('click', dreherReset);
 setRecordingActive(false);
 updateLineStepLabel();

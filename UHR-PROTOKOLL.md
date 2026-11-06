@@ -44,7 +44,7 @@ Für die Firmware der LilyGo T-Watch S3 Plus.
 | `tgt`, `perf` | Zielspeed laut Polare und Leistung in % |
 | `vmg` | VMG (kn) |
 | `shift` | Winddreher `{s, tack, d, l}`: `s` Status (`ok`, `nowind`, `reach`, `slow`, `maneuver`, `unsteady`), `tack` `stb`/`bb`, `d` Dreher in ° (+ = rechts), `l` `lift`/`head`/`neutral` |
-| `nav` | Nächste Tonne `{n, i, of, d, b, lay, up}`: Name, Nummer i von `of`, Distanz, Peilung, Layline-Abstand (< 0 noch nicht, ≈ 0 Layline, > 0 übersegelt), `up` 1 = Kreuz |
+| `nav` | Nächste Tonne `{n, i, of, d, b, lay, up, luv}`: Name, Nummer i von `of`, Distanz, Peilung, Layline-Abstand (< 0 noch nicht, ≈ 0 Layline, > 0 übersegelt), `up` 1 = Kreuz, `luv` Abstand zur Tonne in Windrichtung (m, + = Tonne in Luv) – „Lineal“-Wert zum Vergleich mit anderen Booten |
 | `line` | Startlinie `{d, bias, fav}`: Abstand zur Linie, Linienvorteil in °, bevorzugtes Ende `boot`/`pin`/`null` |
 | `rec` | 1 = Aufzeichnung läuft |
 | `lock` | 1 = Handy im Taschenmodus |

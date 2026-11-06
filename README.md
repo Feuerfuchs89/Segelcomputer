@@ -31,6 +31,9 @@ in einer einzigen `index.html`.
   10-Minuten-Bezug, gelifted/geheaded, Pendelbereich
 - **Taschenmodus** (`tasche.js`): schwarzer Sperrbildschirm, Display bleibt
   wach, Montage „In der Tasche“ (nur GPS-Kurs)
+- **Bahnansicht „Ziel oben“** (`bahnansicht.js`): Karte dreht sich mit dem
+  Schenkel, nächstes Ziel immer oben, Lineal alle 50 m quer zum Wind wie in
+  der Regattakoje
 - **Anleitung** in der App (❓ oben rechts)
 - Als **Progressive Web App (PWA)**: installierbar auf dem Homescreen,
   App-Shell wird per Service Worker gecacht und startet auch offline
@@ -89,6 +92,7 @@ Nach ein bis zwei Minuten ist die App unter
 ├── uhr.js                   # Bluetooth-Brücke zur Smartwatch
 ├── dreher.js                # Winddreher aus dem eigenen Kurs
 ├── tasche.js                # Taschenmodus
+├── bahnansicht.js           # Bahnansicht „Ziel oben“ mit Lineal
 ├── UHR-PROTOKOLL.md         # Nachrichtenformat für die Uhr-Firmware
 ├── favicon-16.png, favicon-32.png, apple-touch-icon.png
 └── icon-192.png, icon-512.png, icon-maskable-512.png   # App-Icon (alles im Hauptordner, keine Unterordner)

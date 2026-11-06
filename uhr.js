@@ -164,12 +164,12 @@ function uhrMsgTimer(){
                       : { t:'timer', run:false, sec:timerSeconds };
 }
 function uhrMsgDisp(){
-  const sog = filteredSog(), cog = filteredCog(), course = effectiveCourse();
+  const sog = filteredSog(), cog = filteredCog(), crs = effectiveCourse(); // nicht „course“ nennen – das ist die Bahn
   const m = { t:'disp', gps: gpsOk ? 1 : 0, sog:r1(sog), cog:r0(cog), rec: recordingActive ? 1 : 0, lock: pocketOn ? 1 : 0 };
   if(windRef!==null){
     m.wind = { dir:r0(windRef), tws:r1(currentTWS()), src:windSource };
-    if(course!==null){
-      const twaS = angleDiff(course, windRef), twa = Math.abs(twaS), z = classifyZone(twa);
+    if(crs!==null){
+      const twaS = angleDiff(crs, windRef), twa = Math.abs(twaS), z = classifyZone(twa);
       m.twa = r0(twaS);
       m.zone = { k:z.key, c:ZONE_COLORS[z.key], l:z.label, poS:z.pointOfSail };
       m.soll = z.soll;
@@ -187,7 +187,7 @@ function uhrMsgDisp(){
   if(t){
     const info = targetInfo(t);
     m.nav = { n:t.name, i:course.act+1, of:course.seq.length };
-    if(info) Object.assign(m.nav, { d:r0(info.dist), b:r0(info.brg), lay: info.diff!=null ? r0(info.diff) : null, up: info.upwind ? 1 : 0 });
+    if(info) Object.assign(m.nav, { d:r0(info.dist), b:r0(info.brg), lay: info.diff!=null ? r0(info.diff) : null, up: info.upwind ? 1 : 0, luv: r0(windwardDistance(t)) });
   }
   if(lineBoat && linePin){
     m.line = {};

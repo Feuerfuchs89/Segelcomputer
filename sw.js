@@ -8,7 +8,7 @@
  * Kartenansicht auch offline weiter.
  */
 
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v9';
 const APP_SHELL_CACHE = `segelcomp-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `segelcomp-runtime-${CACHE_VERSION}`;
 
@@ -16,18 +16,24 @@ const APP_SHELL_FILES = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icons/favicon-16.png',
-  './icons/favicon-32.png',
-  './icons/apple-touch-icon.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-512.png'
+  './boote.js',
+  './bahn.js',
+  './uhr.js',
+  './dreher.js',
+  './tasche.js',
+  './favicon-16.png',
+  './favicon-32.png',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(APP_SHELL_CACHE)
-      .then((cache) => cache.addAll(APP_SHELL_FILES))
+      // einzeln statt addAll: fehlt eine Datei (z. B. ein Icon), scheitert sonst die ganze Installation
+      .then((cache) => Promise.all(APP_SHELL_FILES.map((f) => cache.add(f).catch(() => null))))
       .then(() => self.skipWaiting())
   );
 });
@@ -53,6 +59,10 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
+
+  // Live-Daten (Wetter, Uferlinie) nie aus dem Cache: sonst käme beim
+  // Aktualisieren zuerst der alte Wind zurück. Der Browser holt sie direkt.
+  if (/open-meteo\.com$|overpass-api\.de$/.test(url.hostname)) return;
 
   if (isAppShellRequest(url)) {
     // App-Shell: Cache-first, damit die App sofort & offline startet.

@@ -8,11 +8,11 @@
 <!-- PWA / Homescreen -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#071822">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -262,6 +262,54 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
    und über windOverlayCanvas liegen, obwohl das im DOM danach kommt. */
 #leafletMap{ background: var(--panel-2); z-index: 1; }
 #windOverlayCanvas{ z-index: 2; }
+
+/* ---------- Trainingsbahn: Tonnen, Werkzeuge, Navigation ---------- */
+.buoy-wrap{ position:relative; }
+.buoy{ width:16px; height:16px; border-radius:50%; border:2px solid rgba(0,0,0,0.55); box-shadow:0 1px 4px rgba(0,0,0,0.4); }
+.buoy.active{ border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,0.35), 0 1px 4px rgba(0,0,0,0.4); }
+.buoy-lbl{ position:absolute; left:20px; top:0; white-space:nowrap; font:700 11px 'Inter',sans-serif; color:var(--text);
+  background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:1px 5px; pointer-events:none; }
+.ruler-tip{ white-space:nowrap; }
+.ruler-tip::before{ display:none; }
+.llPopup{ font:600 12.5px 'Inter',sans-serif; display:flex; flex-direction:column; gap:6px; min-width:140px; }
+.llPopup button{ padding:7px 10px; border-radius:8px; border:1px solid #ccc; background:#f4f4f4; font-weight:700; }
+.llPopup button.del{ color:#E63946; }
+#mapToolbar{ position:absolute; left:8px; top:8px; right:8px; display:flex; flex-wrap:wrap; gap:6px; z-index:500; pointer-events:none; }
+#mapToolbar .chip{ pointer-events:auto; }
+#mapStage.map-fullscreen #mapToolbar{ top:calc(max(16px, env(safe-area-inset-top)) + 70px); }
+#mapStage.map-fullscreen #mapNavChip{ top:calc(max(16px, env(safe-area-inset-top)) + 108px); }
+#mapToolbar .chip{ background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3); padding:5px 10px; font-size:12px; cursor:pointer; }
+#mapToolbar .chip.active{ background:var(--amber); color:var(--ink); }
+#mapToolHint{ position:absolute; left:8px; right:60px; bottom:8px; z-index:500; display:none; font-size:12px; font-weight:600;
+  background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:7px 10px; }
+#mapNavChip{ position:absolute; left:8px; top:44px; max-width:calc(100% - 70px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; z-index:500; display:none; font:700 12.5px 'Inter',sans-serif;
+  background:var(--panel); color:var(--amber); border:1px solid var(--line); border-radius:14px; padding:6px 10px; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+.crs-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; }
+.crs-grid label{ font-size:10.5px; color:var(--dim); font-weight:700; display:flex; flex-direction:column; gap:4px; }
+.crs-grid select, .crs-grid input{ width:100%; padding:8px 9px; border-radius:10px; border:1px solid var(--line); background:var(--panel-2); color:var(--text); font-size:14px; }
+.crs-actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.crs-actions .ctrl-btn{ text-align:center; }
+#crsShift{ display:none; margin-top:8px; background:var(--orange); color:var(--ink); border-radius:10px; padding:8px 10px; font-weight:700; font-size:12.5px; cursor:pointer; }
+.nav-row{ display:flex; align-items:center; gap:8px; }
+.nav-row .ctrl-btn.small.ghost{ flex:0 0 auto; padding:12px 16px; }
+.hdr-btn{ cursor:pointer; font-size:13px; font-weight:800; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:1px 7px; }
+#pocketOverlay{ position:fixed; inset:0; z-index:5000; background:#000; display:none; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  touch-action:none; user-select:none; -webkit-user-select:none; }
+#pocketRing{ width:120px; height:120px; border-radius:50%; border:2px solid #222; display:flex; align-items:center; justify-content:center; color:#3a3a3a; font-size:34px; }
+#pocketRing .pk-ico{ filter:grayscale(1) brightness(0.35); }
+#pocketOverlay .pk-txt{ color:#3a3a3a; font:600 13px 'Inter',sans-serif; text-align:center; padding:0 30px; line-height:1.5; }
+#helpOverlay{ position:fixed; inset:0; z-index:4000; background:var(--bg); display:none; flex-direction:column; }
+#helpOverlay .help-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line); }
+#helpOverlay .help-head b{ font-size:16px; }
+#helpOverlay .help-body{ overflow:auto; padding:10px 16px 40px; flex:1; }
+#helpOverlay details{ background:var(--panel); border:1px solid var(--line); border-radius:12px; margin:8px 0; padding:0 14px; }
+#helpOverlay summary{ padding:12px 0; font-weight:700; font-size:14.5px; cursor:pointer; }
+#helpOverlay details > div{ padding:0 0 12px; font-size:13.5px; line-height:1.55; color:var(--text); }
+#helpOverlay details li{ margin:3px 0; }
+#helpOverlay details ul{ padding-left:18px; margin:4px 0; }
+#helpOverlay .muted{ color:var(--dim); }
+#uhrLog{ display:none; margin:0 16px 10px; padding:8px 10px; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+  font:11px/1.4 ui-monospace,Menlo,monospace; color:var(--dim); white-space:pre-wrap; word-break:break-all; max-height:180px; overflow:auto; }
 </style>
 </head>
 <!-- Leaflet: nur für den optionalen "Echtkarte"-Modus (OpenStreetMap-Kacheln, braucht Internet).
@@ -277,6 +325,131 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
   <div class="skip" id="skipBtn">Ohne Sensoren fortfahren (Demo)</div>
 </div>
 
+
+<div id="pocketOverlay">
+  <div id="pocketRing"><span class="pk-ico">🔒</span></div>
+  <div class="pk-txt">Taschenmodus<br>2 Sekunden gedrückt halten zum Entsperren<br>oder an der Uhr entsperren</div>
+  <div class="pk-txt" id="pocketInfo"></div>
+</div>
+
+<div id="helpOverlay">
+  <div class="help-head"><b>Anleitung</b><div class="chip" id="helpClose">✕ Schließen</div></div>
+  <div class="help-body">
+    <details open><summary>Schnellstart fürs Wasser</summary><div>
+      <b>Zu Hause (mit Internet)</b>
+      <ul>
+        <li>Einstellungen → <b>Bootsklasse</b> wählen.</li>
+        <li>Karte → Echtkarte auf euren See schieben → <b>🌊 See laden</b>. Das Ufer bleibt danach offline gespeichert.</li>
+      </ul>
+      <b>Am Steg</b>
+      <ul>
+        <li><b>Sensoren aktivieren</b> (GPS freigeben).</li>
+        <li>Windquelle wählen: <b>Internet</b>, <b>Manuell</b> oder später auf dem Wasser <b>pingen</b>.</li>
+        <li>Bluetooth an → Einstellungen → <b>⌚ Uhr verbinden</b>.</li>
+        <li>Montage: <b>In der Tasche</b>.</li>
+        <li>Oben auf <b>🔒</b> tippen (Taschenmodus) → Handy einpacken.</li>
+      </ul>
+      <span class="muted">Wichtig: Nicht die Ein/Aus-Taste drücken. Ist der Bildschirm aus, hält Chrome GPS und Bluetooth an, und die Uhr bekommt nichts mehr.</span>
+    </div></details>
+
+    <details><summary>Windquelle</summary><div>
+      <ul>
+        <li><b>Pingen:</b> 1× = Bug genau in den Wind drehen und pingen. 2× = auf beiden Bugen hoch am Wind je einmal pingen, die App nimmt die Mitte.</li>
+        <li><b>Internet:</b> Wind von Open-Meteo für deine Position, alle 5 min neu. Das ist ein Wettermodell und zeigt keine kleinen Dreher.</li>
+        <li><b>Manuell:</b> Richtung und Stärke eintippen, mit „Bestätigen“ übernehmen.</li>
+        <li>Die Chips <b>Leicht/Mittel/Stark</b> geben beim Pingen die geschätzte Windstärke an (8/14/20 kn).</li>
+      </ul>
+    </div></details>
+
+    <details><summary>Bootsklasse & Polaren</summary><div>
+      Die Polaren von Topcat K2, Kutter ZK 10, K6, Ixylon, Jolle und Opti stammen aus der Regattakoje. Daraus rechnet die App:
+      <ul>
+        <li><b>Soll-Winkel</b> am und vorm Wind, stufenlos nach Windstärke</li>
+        <li><b>Zielspeed</b> und <b>Leistung in %</b> (Trimm-Seite)</li>
+        <li><b>Ziel-VMG</b> (Taktik-Seite) und die Zeit beim Lineal</li>
+      </ul>
+      <span class="muted">Die Werte sind geschätzt, nicht gemessen. Bei Abweichungen gilt dein Gefühl fürs Boot.</span>
+    </div></details>
+
+    <details><summary>Timer</summary><div>
+      <ul>
+        <li>Preset 5/4/1 min wählen → <b>Start / Sync</b>.</li>
+        <li>Läuft der Timer, zieht ein erneuter Druck auf <b>Start / Sync</b> auf die nächste volle Minute.</li>
+        <li>Signale bei 3:00, 1:00 und 0:30, in den letzten 5 s jede Sekunde, langer Ton beim Start.</li>
+      </ul>
+    </div></details>
+
+    <details><summary>Trimm-Seite</summary><div>
+      Die Farbe zeigt den Kurs: <b>Rot</b> = zu dicht, <b>Grün</b> = Sweet Spot, <b>Orange</b> = am Wind zu tief, <b>Blau/Türkis</b> = Halbwind/Raum, <b>Lila</b> = vorm Wind zu tief.
+      Darunter stehen TWA, Soll-Winkel, Zielspeed und Leistung in %. Doppeltippen = Vollbild.
+    </div></details>
+
+    <details><summary>Taktik-Seite & Winddreher</summary><div>
+      <ul>
+        <li><b>Nächste Tonne:</b> Distanz, Peilung und Abstand zur Layline. Mit ◀ ▶ blätterst du die Tonnen durch.</li>
+        <li><b>Winddreher:</b> Die App misst den Wind aus deinem eigenen Kurs, getrennt nach Bug. Der Bezug ist der Mittelwert der letzten 10 min.
+          <ul>
+            <li><b>GELIFTED</b> = der Dreher hilft dir → weiterfahren.</li>
+            <li><b>GEHEADED</b> = der Dreher ist gegen dich → Wende (vorm Wind: Halse) überlegen.</li>
+            <li>Gemessen wird nur am oder vorm Wind, ab ca. 2 kn, nicht in den ersten 15 s nach einem Manöver und nicht bei unruhigem Kurs.</li>
+            <li>„Pendelt 232°–251°, ca. alle 6 min“ zeigt die Schwankung des Windes.</li>
+            <li><b>↺ Referenz neu</b> nach einer bleibenden Winddrehung.</li>
+          </ul></li>
+        <li><b>Layline zur Luvtonne:</b> „Noch X°“ → weiterkreuzen. „LAYLINE“ → jetzt wenden. „ÜBERSEGELT“ → zu weit gefahren.</li>
+      </ul>
+    </div></details>
+
+    <details><summary>Start-Seite</summary><div>
+      Untere Taste <b>Linie pingen</b>: erst am Boot-Ende, dann am Pin-Ende. Die App zeigt das bevorzugte Ende (Bias) und deinen Abstand zur Linie.
+      Auf der Karte zeigt eine Linie, wo dein Kurs die Startlinie trifft: grün = zwischen den Enden, orange = daneben.
+    </div></details>
+
+    <details><summary>Karte & Trainingsbahn</summary><div>
+      <ul>
+        <li><b>🌊 See laden:</b> holt das Ufer (mit Inseln) aus OpenStreetMap, einmal mit Internet.</li>
+        <li><b>🧭 Automatisch auslegen:</b> Bahnform, Kreuzlänge, Runden und Bootszahl wählen. Die Bahn wird nach dem aktuellen Wind ausgerichtet und mit größtmöglichem Abstand zu Ufer und Inseln auf den See gelegt. Ist der See zu klein, wird die Kreuz gekürzt.</li>
+        <li><b>↻ Nach Wind drehen:</b> dreht die Bahn um die Startlinie auf den aktuellen Wind. Bei 10° Winddrehung oder mehr erscheint ein Hinweis zum Antippen.</li>
+        <li><b>＋ Tonne:</b> antippen, dann auf die Karte tippen. Tonnen (auch Startschiff, Pin und Luv) lassen sich verschieben. Eine Tonne antippen → löschen oder als nächstes Ziel.</li>
+        <li><b>📏 Lineal:</b> Punkte antippen → Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.</li>
+        <li>Rote gestrichelte Linien sind die <b>Laylines</b> der aktiven Tonne. Gerundete Tonnen erkennt die App selbst und schaltet zur nächsten weiter. Das Ziel ist die Startlinie.</li>
+        <li>Setzen und Messen geht nur auf der Echtkarte (🌐). Die Offline-Karte zeigt alles nur an.</li>
+      </ul>
+    </div></details>
+
+    <details><summary>Uhr</summary><div>
+      Das Handy ist GPS-Empfänger und rechnet alles. Die Uhr zeigt nur an und steuert. Nötig sind Chrome auf Android und eingeschaltetes Bluetooth.
+      <ul>
+        <li><b>Verbinden:</b> Einstellungen → ⌚ Uhr verbinden → Uhr auswählen. Bricht die Verbindung ab, verbindet die App selbst neu.</li>
+        <li><b>Anzeige:</b> Speed, Kurs, VMG, Kurszone, Leistung %, Winddreher, nächste Tonne mit Layline, Startlinie, Timer.</li>
+        <li><b>Steuern:</b> Timer Start/Sync und Presets, Wind pingen, Boot-/Pin-Ende und Luvtonne setzen, nächste/vorige Tonne, Bahn nach Wind drehen, Aufzeichnung, Dreher-Referenz neu, Handy sperren/entsperren.</li>
+        <li><b>Protokoll</b> (Einstellungen) zeigt, was gesendet und empfangen wurde.</li>
+      </ul>
+      <span class="muted">Welche Taste an der Uhr was auslöst, legt die Uhr-Firmware fest.</span>
+    </div></details>
+
+    <details><summary>Taschenmodus 🔒</summary><div>
+      <ul>
+        <li>Schwarzer Bildschirm, der Berührungen durch die Tasche ignoriert. Das Display bleibt an, damit GPS und Bluetooth weiterlaufen. Schwarz spart bei OLED-Displays viel Strom.</li>
+        <li>Stellt die Montage automatisch auf „In der Tasche“ (nur GPS-Kurs).</li>
+        <li><b>Entsperren:</b> 2 s gedrückt halten oder über die Uhr.</li>
+        <li>Unten im Bildschirm stehen leise GPS-, Uhr- und Display-Status.</li>
+      </ul>
+    </div></details>
+
+    <details><summary>Aufzeichnung & Log</summary><div>
+      Karte → <b>Aufzeichnung starten</b>. <b>Lauf speichern & neu starten</b> legt den Lauf im Log ab. Dort kannst du ihn als GPX exportieren und auf der Karte frühere Läufe einblenden.
+    </div></details>
+
+    <details><summary>Akku & Grenzen</summary><div>
+      <ul>
+        <li>Mit Bildschirm an und schwarzem Taschenmodus reicht der Akku für eine Regatta von 2–3 h gut. Für lange Tage eine kleine Powerbank mit in die Tasche.</li>
+        <li>Der GPS-Kurs braucht Fahrt. Unter ca. 1–2 kn sind Kurs, Zone und Dreher ungenau.</li>
+        <li>Internet brauchen nur Echtkarte, Live-Wind und „See laden“. Alles andere läuft offline.</li>
+        <li>Prototyp: Bei Regattaentscheidungen zählen Regeln, Augen und Bauchgefühl.</li>
+      </ul>
+    </div></details>
+  </div>
+</div>
 <div id="app">
 
   <header>
@@ -285,6 +458,9 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
       <div class="status-label" id="gpsToggle" style="cursor:pointer;"><div class="dot" id="gpsDot"></div><span id="gpsToggleLabel">GPS</span></div>
       <div class="status-label"><div class="dot" id="cmpDot"></div>CMP</div>
       <div class="status-label" id="wakeToggle" style="cursor:pointer;"><div class="dot" id="wakeDot"></div><span>Display</span></div>
+      <div class="status-label" id="uhrHeader" style="cursor:pointer;"><div class="dot" id="uhrDot"></div><span>Uhr</span></div>
+      <div class="status-label hdr-btn" id="pocketBtn" title="Taschenmodus">🔒</div>
+      <div class="status-label hdr-btn" id="helpBtn" title="Anleitung">?</div>
     </div>
   </header>
   <div id="secureWarning" style="display:none; background:var(--red); color:#fff; font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
@@ -315,9 +491,9 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
     </div>
     <div class="chip-row" id="strengthRow">
       <span class="row-label">WIND</span>
-      <div class="chip active" data-str="leicht">Leicht</div>
-      <div class="chip" data-str="mittel">Mittel</div>
-      <div class="chip" data-str="stark">Stark</div>
+      <div class="chip active" data-str="leicht">Leicht ~8 kn</div>
+      <div class="chip" data-str="mittel">Mittel ~14 kn</div>
+      <div class="chip" data-str="stark">Stark ~20 kn</div>
     </div>
     <div class="chip-row" id="themeRow">
       <span class="row-label">ANZEIGE</span>
@@ -329,12 +505,20 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
       <span class="row-label">MONTAGE</span>
       <div class="chip active" data-mount="boot">Am Boot fest</div>
       <div class="chip" data-mount="arm">Am Arm</div>
+      <div class="chip" data-mount="tasche">In der Tasche</div>
     </div>
     <div class="chip-row" id="signalRow">
       <span class="row-label">SIGNALE</span>
       <div class="chip active" id="vibChip">📳 Vibration</div>
       <div class="chip active" id="audioChip">🔊 Ton</div>
     </div>
+    <div class="chip-row" id="uhrRow">
+      <span class="row-label">UHR</span>
+      <div class="chip" id="uhrChip">⌚ Uhr verbinden</div>
+      <div class="chip" id="uhrLogChip">Protokoll</div>
+      <span class="row-label" id="uhrStatus" style="font-weight:600;">Nicht verbunden</span>
+    </div>
+    <pre id="uhrLog"></pre>
   </div>
   <div id="mountWarning" style="display:none; background:var(--orange); color:var(--ink); font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
     Handy am Arm: Der Magnet-Kompass dreht sich mit deinem Arm und wäre unbrauchbar. Kompassrose, Wind-Zone &amp; Kurs nutzen stattdessen den GPS-Kurs (COG) – braucht etwas Fahrt, ist bei &lt;1 kn ungenau.
@@ -416,6 +600,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           </div>
         </div>
         <div class="zone-sub">TWA · Soll <span id="twaSoll">–°</span></div>
+        <div class="zone-sub" id="polarLine">Ziel <span id="tgtSpeed">–</span> kn · <span id="perfPct">–</span></div>
       </div>
       <div class="data-row">
         <div class="panel data-card">
@@ -433,13 +618,27 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
     <!-- TAKTIK VIEW -->
     <div class="view" id="view-tactic">
       <div class="panel">
+        <div class="panel-label">Nächste Tonne</div>
+        <div class="nav-row">
+          <div class="ctrl-btn small ghost" id="navPrev">◀</div>
+          <div style="flex:1; min-width:0;">
+            <div class="data-val" id="navTarget" style="font-size:20px;">Keine Bahn</div>
+            <div class="panel-hint" id="navSub">Auf der Karte eine Bahn auslegen oder Tonnen setzen.</div>
+          </div>
+          <div class="ctrl-btn small ghost" id="navNext">▶</div>
+        </div>
+      </div>
+      <div class="panel">
         <div class="panel-label">Winddreher</div>
         <div class="big-metric"><span class="data-val" id="shiftVal">NEUTRAL</span></div>
         <div class="lift-flag" id="shiftFlag" style="margin-top:10px; background:var(--line); color:var(--dim);">Referenz noch nicht gesetzt</div>
+        <div class="panel-hint" id="shiftInfo" style="margin-top:8px;"></div>
+        <div class="ctrl-btn small ghost" id="shiftResetBtn" style="margin-top:8px;">↺ Referenz neu</div>
       </div>
       <div class="panel">
         <div class="panel-label">VMG</div>
         <div class="big-metric"><span class="data-val" id="vmgVal">–</span><span class="data-unit"> kn</span></div>
+        <div class="panel-hint" id="vmgTarget">Ziel-VMG laut Polare: –</div>
       </div>
       <div class="data-row">
         <div class="panel data-card"><div class="panel-label">Wenden</div><span class="data-val" id="tackCount">0</span></div>
@@ -494,6 +693,13 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           <canvas id="mapCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:block;"></canvas>
           <canvas id="windOverlayCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:none; pointer-events:none;"></canvas>
           <div id="mapCountdownOverlay">05:00</div>
+          <div id="mapToolbar">
+            <div class="chip" id="toolMark">＋ Tonne</div>
+            <div class="chip" id="toolRuler">📏 Lineal</div>
+            <div class="chip" id="toolRulerClear" style="display:none;">Lineal ✕</div>
+          </div>
+          <div id="mapNavChip"></div>
+          <div id="mapToolHint"></div>
           <div id="mapZoomCtrls" style="position:absolute; right:8px; bottom:8px; display:flex; flex-direction:column; gap:6px; z-index:500;">
             <div class="ctrl-btn small ghost" id="mapZoomIn" style="flex:none; padding:8px 12px; background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3);">+</div>
             <div class="ctrl-btn small ghost" id="mapZoomOut" style="flex:none; padding:8px 12px; background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3);">–</div>
@@ -505,6 +711,30 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           <div style="flex:1; height:7px; border-radius:4px; background:linear-gradient(90deg,#E63946,#FFD400,#1DB954);"></div>
           <span style="font-size:10px; color:var(--dim); font-weight:700; letter-spacing:.03em;">SCHNELL <span id="speedLegendMax">–</span></span>
         </div>
+      </div>
+      <div class="panel" id="coursePanel">
+        <div class="panel-label">Trainingsbahn</div>
+        <div class="crs-grid">
+          <label>Bahnform
+            <select id="crsType">
+              <option value="wl">Up-and-Down</option>
+              <option value="gate">Up-and-Down mit Leetor</option>
+              <option value="offset">Up-and-Down mit Ablauftonne</option>
+              <option value="tri">Dreieck</option>
+            </select>
+          </label>
+          <label>Kreuzlänge (m)<input type="number" id="crsLeg" min="100" max="1500" step="50" value="450"></label>
+          <label>Runden<input type="number" id="crsLaps" min="1" max="5" step="1" value="2"></label>
+          <label>Boote im Feld<input type="number" id="crsFleet" min="1" max="60" step="1" value="6"></label>
+        </div>
+        <div class="crs-actions">
+          <div class="ctrl-btn small ghost" id="crsLoadLake">🌊 See laden</div>
+          <div class="ctrl-btn small primary" id="crsAuto">🧭 Automatisch auslegen</div>
+          <div class="ctrl-btn small ghost" id="crsRealign">↻ Nach Wind drehen</div>
+          <div class="ctrl-btn small ghost" id="crsClear" style="color:var(--red,#E63946);">🗑 Bahn löschen</div>
+        </div>
+        <div id="crsShift"></div>
+        <div class="panel-hint" id="crsHint" style="margin-top:8px;">„See laden“ holt einmalig das Ufer aus OpenStreetMap. „Automatisch auslegen“ richtet die Bahn nach dem aktuellen Wind aus und legt sie mit möglichst viel Abstand zu Ufer und Inseln auf den See.</div>
       </div>
       <div class="panel" id="mapBiasPanel">
         <div class="panel-label">Startlinienvorteil</div>
@@ -568,6 +798,11 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin=""></script>
+<script src="boote.js"></script>
+<script src="bahn.js"></script>
+<script src="uhr.js"></script>
+<script src="dreher.js"></script>
+<script src="tasche.js"></script>
 <script>
 if(!window.isSecureContext){
   document.getElementById('secureWarning').style.display = 'block';
@@ -576,10 +811,12 @@ if(!window.isSecureContext){
    Näherungswerte zur Veranschaulichung der Logik – vor Renneinsatz mit echten
    Polardaten / Messungen des jeweiligen Boots kalibrieren. */
 const PROFILES = [
-  { id:'k2',  name:'Topcat K2',  damping:1, angles:{ leicht:{up:45,down:140}, mittel:{up:42,down:135}, stark:{up:40,down:128} } },
-  { id:'ixy', name:'Ixylon',     damping:2, angles:{ leicht:{up:47,down:170}, mittel:{up:45,down:165}, stark:{up:43,down:158} } },
-  { id:'zk10',name:'ZK 10',      damping:3, angles:{ leicht:{up:50,down:175}, mittel:{up:48,down:170}, stark:{up:46,down:164} } },
-  { id:'opti',name:'Optimist',   damping:2, angles:{ leicht:{up:47,down:178}, mittel:{up:45,down:175}, stark:{up:44,down:170} } },
+  { id:'k2',  name:'Topcat K2',  polar:'k2',   damping:1, angles:{ leicht:{up:45,down:140}, mittel:{up:42,down:135}, stark:{up:40,down:128} } },
+  { id:'ixy', name:'Ixylon',     polar:'ixy',  damping:2, angles:{ leicht:{up:47,down:170}, mittel:{up:45,down:165}, stark:{up:43,down:158} } },
+  { id:'zk10',name:'Kutter ZK 10', polar:'zk10', damping:3, angles:{ leicht:{up:50,down:175}, mittel:{up:48,down:170}, stark:{up:46,down:164} } },
+  { id:'k6',  name:'Kutter K6',  polar:'k6',   damping:3 },
+  { id:'jolle',name:'Zweimann-Jolle', polar:'jolle', damping:2 },
+  { id:'opti',name:'Optimist',   polar:'opti', damping:2, angles:{ leicht:{up:47,down:178}, mittel:{up:45,down:175}, stark:{up:44,down:170} } },
 ];
 
 /* ---- eigene, vom Nutzer angelegte Bootsklassen aus localStorage nachladen ---- */
@@ -589,6 +826,7 @@ try{
 }catch(e){}
 
 let activeProfileIdx = 0;
+try{ const sp = localStorage.getItem('segelcomp_activeProfile'); const i = PROFILES.findIndex(p=>p.id===sp); if(i>=0) activeProfileIdx = i; }catch(e){}
 let windStrength = 'leicht';
 let filterWindowSec = 2;
 
@@ -712,6 +950,7 @@ function makeDoubleTapFullscreen(el, fullscreenClass, opts){
   // bekommt die Geste garantiert mit, unabhängig davon, was Leaflet danach damit macht.
   el.addEventListener('pointerdown', (e)=>{
     if(opts.ignoreSelector && e.target.closest(opts.ignoreSelector)) { tracking=false; return; }
+    if(opts.blocked && opts.blocked()) { tracking=false; return; }
     tracking = true; downX = e.clientX; downY = e.clientY; downT = Date.now();
   }, true);
   el.addEventListener('pointerup', (e)=>{
@@ -752,7 +991,8 @@ makeDoubleTapFullscreen(windZoneEl, 'zone-fullscreen');
 
 const mapStageEl = document.getElementById('mapStage');
 makeDoubleTapFullscreen(mapStageEl, 'map-fullscreen', {
-  ignoreSelector: '#mapZoomCtrls',
+  ignoreSelector: '#mapZoomCtrls, #mapToolbar, #mapNavChip, .leaflet-marker-icon, .leaflet-popup',
+  blocked: ()=> !!mapToolMode,
   onChange: ()=>{
     // Canvas-/Leaflet-Abmessungen ändern sich mit dem Vollbild-Wechsel
     requestAnimationFrame(()=>{ resizeMapCanvas(); if(leafletMap) leafletMap.invalidateSize(); });
@@ -760,7 +1000,32 @@ makeDoubleTapFullscreen(mapStageEl, 'map-fullscreen', {
 });
 
 function currentProfile(){ return PROFILES[activeProfileIdx]; }
-function currentAngles(){ return currentProfile().angles[windStrength]; }
+/* Aktuelle wahre Windstärke (kn): Live > Manuell > Schätzwert der Wind-Chips */
+function currentTWS(){
+  if(windSource === 'live' && liveTWS != null) return liveTWS;
+  if(windSource === 'manual' && manualTWS != null) return manualTWS;
+  return TWS_ESTIMATE[windStrength];
+}
+function currentPolar(){ const p = currentProfile(); return p.polar ? BOAT_POLARS[p.polar] : null; }
+/* Soll-Winkel stufenlos über die Windstärke: die bisher kalibrierten Werte
+   (leicht ≈ 8 kn, mittel ≈ 14 kn, stark ≈ 20 kn) werden linear interpoliert.
+   Profile ohne eigene Winkel nehmen das VMG-Optimum aus der Polare. */
+function currentAngles(){
+  const p = currentProfile(), tws = currentTWS();
+  if(p.angles){
+    const xs = [8,14,20], A = [p.angles.leicht, p.angles.mittel, p.angles.stark];
+    return { up: Math.round(polInterp(xs, A.map(a=>a.up), tws)), down: Math.round(polInterp(xs, A.map(a=>a.down), tws)) };
+  }
+  const bp = currentPolar();
+  if(bp){ const o = polarOpt(bp, tws); return { up:o.up, down:o.down }; }
+  return { up:45, down:150 };
+}
+/* Zielgeschwindigkeit laut Polare für den aktuellen TWA (Spi ab 110° TWA) */
+function targetSpeed(twaAbs){
+  const bp = currentPolar();
+  if(!bp || twaAbs==null) return null;
+  return polarSpeed(bp, currentTWS(), twaAbs, twaAbs >= 110);
+}
 function saveCustomProfiles(){
   try{ localStorage.setItem('segelcomp_customProfiles', JSON.stringify(PROFILES.filter(p=>p.custom))); }catch(e){}
 }
@@ -799,6 +1064,7 @@ function addCustomProfile(){
 profileSelect.addEventListener('change', ()=>{
   if(profileSelect.value === ADD_PROFILE_VALUE){ addCustomProfile(); return; }
   activeProfileIdx = parseInt(profileSelect.value, 10);
+  try{ localStorage.setItem('segelcomp_activeProfile', currentProfile().id); }catch(e){}
 });
 renderProfileOptions();
 document.querySelectorAll('[data-str]').forEach(chip=>{
@@ -840,12 +1106,15 @@ try{
    Anzeigen (Kompassrose, Wind-Zone, Winkel-Berechnung) statt der Rohkompassrichtung
    der GPS-Kurs über Grund (COG) verwendet – der ist unabhängig davon, wie das Handy
    gerade gehalten wird, braucht dafür aber ausreichend Fahrt durchs Wasser. ---- */
-let mountMode = 'boot'; // 'boot' | 'arm'
+let mountMode = 'boot'; // 'boot' | 'arm' | 'tasche'
 const mountWarningEl = document.getElementById('mountWarning');
 const hdgLabelEl = document.getElementById('hdgLabel');
 function applyMountMode(){
-  mountWarningEl.style.display = (mountMode === 'arm') ? 'block' : 'none';
-  hdgLabelEl.textContent = (mountMode === 'arm') ? 'Kurs (GPS)' : 'Kompass';
+  mountWarningEl.style.display = (mountMode !== 'boot') ? 'block' : 'none';
+  mountWarningEl.textContent = mountMode === 'tasche'
+    ? 'Handy in der Tasche: Der Kompass ist dort unbrauchbar. Alle Kurswerte kommen aus dem GPS-Kurs (COG) – braucht etwas Fahrt, unter ca. 1–2 kn ungenau.'
+    : 'Handy am Arm: Der Magnet-Kompass dreht sich mit deinem Arm und wäre unbrauchbar. Kompassrose, Wind-Zone & Kurs nutzen stattdessen den GPS-Kurs (COG) – braucht etwas Fahrt, ist bei <1 kn ungenau.';
+  hdgLabelEl.textContent = (mountMode !== 'boot') ? 'Kurs (GPS)' : 'Kompass';
 }
 document.querySelectorAll('[data-mount]').forEach(chip=>{
   chip.addEventListener('click', ()=>{
@@ -858,7 +1127,7 @@ document.querySelectorAll('[data-mount]').forEach(chip=>{
 });
 try{
   const savedMount = localStorage.getItem('segelcomp_mountMode');
-  if(savedMount === 'boot' || savedMount === 'arm'){
+  if(savedMount === 'boot' || savedMount === 'arm' || savedMount === 'tasche'){
     mountMode = savedMount;
     document.querySelectorAll('[data-mount]').forEach(c=>c.classList.toggle('active', c.dataset.mount===savedMount));
   }
@@ -1000,14 +1269,15 @@ function filteredCog(){
 function effectiveCourse(){
   const sog = filteredSog();
   const cog = filteredCog();
-  if(sog !== null && sog < 1.0 && heading !== null) return heading;
-  return cog !== null ? cog : heading;
+  const useCompass = mountMode === 'boot'; // Kompass nur, wenn das Handy fest am Boot sitzt
+  if(useCompass && sog !== null && sog < 1.0 && heading !== null) return heading;
+  return cog !== null ? cog : (useCompass ? heading : null);
 }
 /* Liefert den Kurs, der für Kompassrose/Wind-Winkel verwendet werden soll.
    Am Arm getragen ist die Rohkompassrichtung unbrauchbar (dreht sich mit dem Arm) –
    dort wird stattdessen konsequent der GPS-Kurs über Grund (COG) genutzt. */
 function referenceHeading(){
-  if(mountMode === 'arm') return effectiveCourse();
+  if(mountMode !== 'boot') return effectiveCourse();
   return heading !== null ? heading : effectiveCourse();
 }
 
@@ -1079,12 +1349,19 @@ function startDemoFallback(){
     if(gpsOk && cmpOk){
       document.getElementById('sensorWarning').style.display = 'none';
     }
-    if(!cmpOk){ manualHeading = (manualHeading + 0.6) % 360; heading = manualHeading; }
     if(gpsEnabled && !gpsOk){
+      // Demo: Kreuzen bei pendelndem Wind (240° ± 8°, Periode 6 min), Wende alle 2 min –
+      // so lassen sich Winddreher, Laylines & Uhr auch an Land ausprobieren.
+      const tS = Date.now()/1000;
+      const demoWind = 240 + 8*Math.sin(2*Math.PI*tS/360);
+      const stb = Math.floor(tS/120) % 2 === 0;
+      const up = currentAngles().up;
+      heading = ((demoWind + (stb ? -up : up) + (Math.random()-0.5)*3) + 360) % 360;
+      if(!cmpOk) manualHeading = heading;
       rawCog = heading;
       rawSog = 4.5 + Math.sin(Date.now()/4000)*0.6;
-      // simulierte Position (nur für Demo-Distanzen), driftet leicht
-      if(!pos) pos = { lat: 54.3233, lon: 10.1228 }; // Kieler Förde als Platzhalter
+      // simulierte Position (nur für Demo-Distanzen): Cospudener See
+      if(!pos) pos = { lat: 51.2705, lon: 12.3395 };
       const metersPerDeg = 111320;
       pos = {
         lat: pos.lat + (rawSog*0.5144*SAMPLE_MS/1000)*Math.cos(heading*Math.PI/180)/metersPerDeg,
@@ -1306,6 +1583,7 @@ function resetCourse(){
   document.getElementById('laylineFlag').textContent = 'Luvtonne noch nicht gepingt';
   document.getElementById('markDist').textContent = '';
   if(typeof redrawLeafletStatics === 'function') redrawLeafletStatics();
+  bahnRedraw();
   showToast('Startlinie & Luvtonne gelöscht – bereit für eine neue Bahn.');
 }
 function updateLineStepLabel(){
@@ -1451,6 +1729,7 @@ function pushTrackPoint(){
   leafletPushNewTrackSegment();
 }
 function logManeuver(type, hdg){
+  dreherNoteManeuver();
   maneuverLog.push({ t: new Date().toISOString(), type, heading: Math.round(hdg) });
   document.getElementById('maneuverCount').textContent = maneuverLog.length;
   const list = document.getElementById('maneuverList');
@@ -1788,16 +2067,21 @@ function renderLoop(){
       const vmg = sog*Math.cos(isUpwind?rad:(Math.PI-rad));
       document.getElementById('vmgVal').textContent = Math.abs(vmg).toFixed(1);
     }
+    // Polare: Zielspeed bei diesem TWA und Leistung in %
+    const tgt = targetSpeed(twaAbs);
+    document.getElementById('tgtSpeed').textContent = tgt!=null ? tgt.toFixed(1) : '–';
+    document.getElementById('perfPct').textContent = (tgt && sog!==null) ? Math.round(sog/tgt*100)+' %' : '–';
+    const bp = currentPolar();
+    if(bp){
+      const a = currentAngles();
+      const vt = isUpwind ? polarSpeed(bp, currentTWS(), a.up, false)*Math.cos(a.up*Math.PI/180)
+                          : -polarSpeed(bp, currentTWS(), a.down, true)*Math.cos(a.down*Math.PI/180);
+      document.getElementById('vmgTarget').textContent = 'Ziel-VMG laut Polare: '+vt.toFixed(1)+' kn ('+(isUpwind?'Am Wind '+a.up:'Vorm Wind '+a.down)+'° · '+Math.round(currentTWS())+' kn Wind)';
+    }
   }
 
-  // Winddreher
-  if(lastShiftBase!==null && course!==null){
-    const shift = angleDiff(course, lastShiftBase);
-    const shiftEl = document.getElementById('shiftVal'), flagEl = document.getElementById('shiftFlag');
-    if(Math.abs(shift)<3){ shiftEl.textContent='NEUTRAL'; flagEl.style.background='var(--line)'; flagEl.style.color='var(--dim)'; flagEl.textContent='Kein signifikanter Dreher'; }
-    else if(shift>0){ shiftEl.textContent='GEHEADED '+Math.round(shift)+'°'; flagEl.style.background='var(--red)'; flagEl.style.color='#fff'; flagEl.textContent='Wind dreht gegen dich – Höhenverlust'; }
-    else { shiftEl.textContent='GELIFTED '+Math.round(-shift)+'°'; flagEl.style.background='var(--green)'; flagEl.style.color='var(--ink)'; flagEl.textContent='Wind dreht für dich – Höhengewinn'; }
-  }
+  // Winddreher: aus dem eigenen Kurs je Bug gemessen (dreher.js)
+  dreherRender(dreherUpdate(course, sog));
 
   // Wenden/Halsen
   if(course!==null){
@@ -1826,15 +2110,17 @@ function renderLoop(){
     const laylineEl = document.getElementById('laylineFlag');
     const diff = Math.abs(markTWA) - soll;
     let laylineState;
+    // diff = Winkel der Peilung zur Tonne gegen den Wind minus Soll-Am-Wind-Winkel:
+    //   < 0  Tonne liegt noch zu weit in Luv (weiterkreuzen), ≈ 0 Layline, > 0 übersegelt
     if(Math.abs(diff) <= 3){
       laylineState = 'legerwall';
-      laylineEl.style.background='var(--amber)'; laylineEl.style.color='var(--ink)'; laylineEl.textContent='LEGERWALL – jetzt wenden möglich';
-    } else if(diff < -3){
+      laylineEl.style.background='var(--amber)'; laylineEl.style.color='var(--ink)'; laylineEl.textContent='LAYLINE – jetzt wenden';
+    } else if(diff > 3){
       laylineState = 'over';
-      laylineEl.style.background='var(--orange)'; laylineEl.style.color='var(--ink)'; laylineEl.textContent='ÜBERSEGELT – mehr Höhe als nötig';
+      laylineEl.style.background='var(--orange)'; laylineEl.style.color='var(--ink)'; laylineEl.textContent='ÜBERSEGELT – '+Math.round(diff)+'° mehr Höhe als nötig';
     } else {
       laylineState = 'under';
-      laylineEl.style.background='var(--line)'; laylineEl.style.color='var(--dim)'; laylineEl.textContent='Noch '+Math.round(diff)+'° bis zur Layline';
+      laylineEl.style.background='var(--line)'; laylineEl.style.color='var(--dim)'; laylineEl.textContent='Noch '+Math.round(-diff)+'° bis zur Layline';
     }
     // Warnung + Logeintrag nur beim Übergang IN den Übersegelt-Zustand (nicht jeden Frame)
     if(laylineState==='over' && lastLaylineState!==null && lastLaylineState!=='over'){
@@ -1907,6 +2193,7 @@ function renderLoop(){
     const relApp = refHdg!==null ? ((app.fromDeg - refHdg + 360) % 360) : app.fromDeg;
     document.getElementById('appArrow').setAttribute('transform', `rotate(${relApp} 50 50)`);
   }
+  bahnTick();
 }
 function trackTackInc(){ tackCount++; document.getElementById('tackCount').textContent = tackCount; }
 function trackGybeInc(){ gybeCount++; document.getElementById('gybeCount').textContent = gybeCount; }
@@ -2126,6 +2413,7 @@ function ensureLeafletMap(){
     attribution: '© OpenStreetMap-Mitwirkende'
   }).addTo(leafletMap);
   llCurrentTrack = L.layerGroup().addTo(leafletMap);
+  bahnAttachLeaflet();
   redrawLeafletStatics();
   overlaySelectedIds.forEach(id=>addRunOverlayToLeaflet(id));
 }
@@ -2138,15 +2426,15 @@ function redrawLeafletStatics(){
   if(!leafletMap) return;
   [llLineLayer, llBoatMark, llPinMark, llMarkMark].forEach(l=>{ if(l) leafletMap.removeLayer(l); });
   llLineLayer=llBoatMark=llPinMark=llMarkMark=null;
+  // Startschiff, Pin & Luvtonne sind ziehbar (z. B. virtuelle Bahn feinjustieren)
   if(lineBoat && linePin){
-    llLineLayer = L.polyline([[lineBoat.lat,lineBoat.lon],[linePin.lat,linePin.lon]], { color: themeColor('--text','#EAF3F2'), weight:2.5, dashArray:'6,5' }).addTo(leafletMap);
-    llBoatMark = llCircle(lineBoat, '#3A86FF', 'Boot').addTo(leafletMap);
-    llPinMark = llCircle(linePin, '#3A86FF', 'Pin').addTo(leafletMap);
-  } else if(lineBoat){
-    llBoatMark = llCircle(lineBoat, '#3A86FF', 'Boot').addTo(leafletMap);
+    llLineLayer = L.polyline([[lineBoat.lat,lineBoat.lon],[linePin.lat,linePin.lon]], { color: themeColor('--text','#EAF3F2'), weight:2.5, dashArray:'6,5', interactive:false }).addTo(leafletMap);
   }
+  if(lineBoat) llBoatMark = llDragMark(lineBoat, '#3A86FF', 'Boot', false, legacyMove('boat')).addTo(leafletMap);
+  if(linePin) llPinMark = llDragMark(linePin, '#3A86FF', 'Pin', false, legacyMove('pin')).addTo(leafletMap);
   if(markPos){
-    llMarkMark = llCircle(markPos, '#FFB703', 'Luv').addTo(leafletMap);
+    const act = course.seq[course.act]==='wind';
+    llMarkMark = llDragMark(markPos, '#FFB703', 'Luv', act, legacyMove('mark')).addTo(leafletMap);
   }
 }
 function updateLeafletLive(){
@@ -2157,6 +2445,7 @@ function updateLeafletLive(){
     llLiveMark.setLatLng([pos.lat, pos.lon]);
   }
   updateLeafletCourseProjection();
+  bahnDrawLeafletDyn();
 }
 /* Aktueller Kurs bis zur Startlinie (grün = trifft zwischen Boot/Pin, orange = verfehlt
    ein Ende) – wird jeden Frame neu gezeichnet, ist aber eine simple Linie, daher günstig. */
@@ -2204,13 +2493,14 @@ function fitLeafletBounds(){
   if(lineBoat) pts.push([lineBoat.lat,lineBoat.lon]);
   if(linePin) pts.push([linePin.lat,linePin.lon]);
   if(markPos) pts.push([markPos.lat,markPos.lon]);
+  bahnExtentPoints().forEach(p=>pts.push([p.lat,p.lon]));
   if(pos) pts.push([pos.lat,pos.lon]);
   trackLog.forEach(p=>pts.push([p.lat,p.lon]));
   overlaySelectedIds.forEach(id=>{
     const run = getSavedRuns().find(r=>r.id===id);
     if(run) run.track.forEach(p=>pts.push([p.lat,p.lon]));
   });
-  if(pts.length === 0) return;
+  if(pts.length === 0){ if(lake) leafletMap.fitBounds(L.latLngBounds(lake.outer)); return; }
   if(pts.length === 1){ leafletMap.setView(pts[0], 16); return; }
   leafletMap.fitBounds(L.latLngBounds(pts), { padding:[26,26] });
 }
@@ -2291,6 +2581,7 @@ function drawOfflineMap(){
   if(lineBoat) pts.push(lineBoat);
   if(linePin) pts.push(linePin);
   if(markPos) pts.push(markPos);
+  bahnExtentPoints().forEach(p=>pts.push(p));
   if(pos) pts.push(pos);
 
   if(pts.length === 0){
@@ -2405,6 +2696,8 @@ function drawOfflineMap(){
     document.getElementById('speedLegendMax').textContent = '–';
   }
 
+  bahnDrawCanvas(mapCtx, toCanvas, dpr);
+
   // Live-Bootsposition (Dreieck in Fahrtrichtung)
   if(pos){
     const b = toCanvas(pos);
@@ -2432,7 +2725,7 @@ function drawRealMapWindOverlay(){
 function drawMap(){
   if(!views[viewIdx] || views[viewIdx].id !== 'view-map') return; // nur zeichnen, wenn Tab sichtbar (spart Akku)
   if(realMapActive()){
-    if(leafletMap){ updateLeafletLive(); }
+    if(leafletMap){ updateLeafletLive(); if(!pos) bahnDrawLeafletDyn(); }
     if(windArrowsEnabled) drawRealMapWindOverlay();
     else { windOverlayCtx.clearRect(0,0,windOverlayCanvas.width,windOverlayCanvas.height); }
   } else {
@@ -2451,8 +2744,20 @@ setInterval(renderLoop, SAMPLE_MS);
 renderTimer();
 updateWindBtnLabel();
 
+/* ---- Anleitung ---- */
+function helpInit(){
+  const ov = document.getElementById('helpOverlay');
+  document.getElementById('helpBtn').addEventListener('click', ()=>{ ov.style.display = 'flex'; });
+  document.getElementById('helpClose').addEventListener('click', ()=>{ ov.style.display = 'none'; });
+}
+
 /* ---- Initiales Laden gespeicherter Referenzpunkte, Läufe & Kartenmodus ---- */
 loadRefPoints();
+bahnInit();
+uhrInit();
+pocketInit();
+helpInit();
+document.getElementById('shiftResetBtn').addEventListener('click', dreherReset);
 setRecordingActive(false);
 updateLineStepLabel();
 loadOverlaySelection();

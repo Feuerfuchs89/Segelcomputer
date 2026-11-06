@@ -16,6 +16,22 @@ in einer einzigen `index.html`.
 - **Karte**: echte OSM-Karte (Leaflet) oder Offline-Fallback-Canvas
 - **Hell-/Dunkel-/Nachtrot-Modus**, Boots-/Wind-Profile, verschiedene
   Montage-Modi
+- **Bootsprofile mit Polaren** aus der Regattakoje (Topcat K2, Kutter ZK 10,
+  Kutter K6, Ixylon, Jolle, Optimist): Zielspeed, Leistung in %, Ziel-VMG,
+  Soll-Winkel stufenlos über die Windstärke (`boote.js`)
+- **Trainingsbahn** (`bahn.js`): Ufer aus OpenStreetMap laden, Up-and-Down /
+  Leetor / Ablauftonne / Dreieck automatisch nach dem Wind ausrichten und mit
+  Abstand zu Ufer und Inseln auf den See legen, Tonnen setzen/ziehen/löschen,
+  Lineal, nächste Tonne mit Laylines und automatischer Rundungserkennung
+- **Uhr als Fernbedienung** per Web Bluetooth (`uhr.js`, Chrome auf Android):
+  Das Handy ist GPS-Empfänger und rechnet alles, die Uhr zeigt fertige Werte
+  an und schickt Befehle (Timer, Pingen, Tonnen, Aufzeichnung, Sperren) –
+  Protokoll in `UHR-PROTOKOLL.md`
+- **Winddreher aus dem eigenen Kurs** (`dreher.js`): Wind je Bug gemessen,
+  10-Minuten-Bezug, gelifted/geheaded, Pendelbereich
+- **Taschenmodus** (`tasche.js`): schwarzer Sperrbildschirm, Display bleibt
+  wach, Montage „In der Tasche“ (nur GPS-Kurs)
+- **Anleitung** in der App (❓ oben rechts)
 - Als **Progressive Web App (PWA)**: installierbar auf dem Homescreen,
   App-Shell wird per Service Worker gecacht und startet auch offline
 
@@ -67,16 +83,17 @@ Nach ein bis zwei Minuten ist die App unter
 ## Projektstruktur
 
 ```
-├── index.html               # komplette App (HTML/CSS/JS in einer Datei)
+├── index.html               # App (Oberfläche + Hauptlogik)
+├── boote.js                 # Bootspolaren (aus der Regattakoje)
+├── bahn.js                  # Trainingsbahn, Tonnen, Lineal, Navigation
+├── uhr.js                   # Bluetooth-Brücke zur Smartwatch
+├── dreher.js                # Winddreher aus dem eigenen Kurs
+├── tasche.js                # Taschenmodus
+├── UHR-PROTOKOLL.md         # Nachrichtenformat für die Uhr-Firmware
+├── favicon-16.png, favicon-32.png, apple-touch-icon.png
+└── icon-192.png, icon-512.png, icon-maskable-512.png   # App-Icon (alles im Hauptordner, keine Unterordner)
 ├── manifest.webmanifest     # PWA-Manifest (Name, Icons, Farben)
 ├── sw.js                    # Service Worker für Offline-App-Shell
-└── icons/                   # generiertes SegelComp-Logo in allen Größen
-    ├── favicon-16.png
-    ├── favicon-32.png
-    ├── apple-touch-icon.png (180×180)
-    ├── icon-192.png
-    ├── icon-512.png
-    └── icon-maskable-512.png (Android adaptive icon)
 ```
 
 ## Technik
@@ -86,6 +103,7 @@ Nach ein bis zwei Minuten ist die App unter
   [Leaflet](https://leafletjs.com/) für die echte Karte (CDN),
   [OpenStreetMap](https://www.openstreetmap.org/)-Kacheln,
   [Open-Meteo](https://open-meteo.com/) für Live-Winddaten,
+  [Overpass-API](https://overpass-api.de/) für die Uferlinie (einmalig, dann lokal gespeichert),
   Google Fonts (Space Grotesk / Inter)
 - Alle Nutzerdaten (Profile, gespeicherte Läufe, Referenzpunkte,
   Einstellungen) liegen ausschließlich lokal im `localStorage` des Geräts

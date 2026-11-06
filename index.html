@@ -219,6 +219,23 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
   top: max(16px, env(safe-area-inset-top));
 }
 
+/* Karten-HUD: Countdown + Start/Sync + Geschwindigkeit direkt in der Kartenansicht */
+#mapHud{
+  position:absolute; left:8px; bottom:36px; z-index:500;
+  display:flex; align-items:center; gap:10px;
+  background:var(--panel); box-shadow:0 2px 8px rgba(0,0,0,0.3);
+  padding:6px 8px 6px 12px; border-radius:14px;
+  font-family:'Space Grotesk',sans-serif; font-variant-numeric:tabular-nums;
+}
+#mapHudTime{ font-weight:700; font-size:20px; color:var(--text); letter-spacing:0.02em; }
+#mapHudStart{
+  border:0; border-radius:10px; padding:8px 14px; font:700 13px 'Inter',sans-serif;
+  background:var(--amber); color:var(--ink); cursor:pointer;
+}
+#mapHudSog{ font-size:12px; color:var(--dim); font-weight:700; }
+#mapHudSog b{ font-size:20px; color:var(--text); }
+#mapStage.map-fullscreen #mapHudTime{ display:none; }
+
 /* Taktik view */
 .big-metric{ display:flex; align-items:baseline; justify-content:space-between; }
 .big-metric .data-val{ font-size: 30px; }
@@ -766,6 +783,11 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
           <canvas id="mapCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none;"></canvas>
           <canvas id="windOverlayCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:none; pointer-events:none;"></canvas>
           <div id="mapCountdownOverlay">05:00</div>
+          <div id="mapHud">
+            <span id="mapHudTime">05:00</span>
+            <button id="mapHudStart" type="button">▶ Start</button>
+            <span id="mapHudSog"><b id="mapHudSogVal">–</b> kn</span>
+          </div>
           <div id="mapToolbar">
             <div class="chip" id="toolMark">＋ Tonne</div>
             <div class="chip" id="toolRuler">📏 Messen</div>
@@ -1076,7 +1098,7 @@ makeDoubleTapFullscreen(windZoneEl, 'zone-fullscreen');
 
 const mapStageEl = document.getElementById('mapStage');
 makeDoubleTapFullscreen(mapStageEl, 'map-fullscreen', {
-  ignoreSelector: '#mapZoomCtrls, #mapToolbar, #mapNavChip, .leaflet-marker-icon, .leaflet-popup, .move-wrap',
+  ignoreSelector: '#mapZoomCtrls, #mapHud, #mapToolbar, #mapNavChip, .leaflet-marker-icon, .leaflet-popup, .move-wrap',
   blocked: ()=> !!mapToolMode,
   onChange: ()=>{
     // Canvas-/Leaflet-Abmessungen ändern sich mit dem Vollbild-Wechsel
@@ -1693,6 +1715,9 @@ function renderTimer(){
   timerSub.textContent = timerRunning ? (timerSeconds<=0?'GESTARTET':'Countdown läuft') : 'Bereit';
   const mapCountdownEl = document.getElementById('mapCountdownOverlay');
   if(mapCountdownEl) mapCountdownEl.textContent = formatTime(timerSeconds);
+  const hudT = document.getElementById('mapHudTime'), hudB = document.getElementById('mapHudStart');
+  if(hudT) hudT.textContent = formatTime(timerSeconds);
+  if(hudB) hudB.textContent = timerRunning ? '⟳ Sync' : '▶ Start';
 }
 const TIMER_MARK_SECONDS = [180, 60, 30]; // 3:00, 1:00, 30 sec
 function flashTimerFace(dur){
@@ -2216,6 +2241,7 @@ tabs.forEach((t,i)=>t.addEventListener('click', ()=>setView(i)));
 })();
 
 document.getElementById('btnStart').addEventListener('click', startStopTimer);
+document.getElementById('mapHudStart').addEventListener('click', startStopTimer);
 document.getElementById('btnMode').addEventListener('click', ()=>pocketEnter(false));
 document.getElementById('btnWind').addEventListener('click', ()=>{
   const id = views[viewIdx].id;
@@ -2237,6 +2263,7 @@ function renderLoop(){
   const refHdg = referenceHeading();
 
   document.getElementById('sogVal').textContent = sog!==null ? sog.toFixed(1) : '–';
+  const hudSog = document.getElementById('mapHudSogVal'); if(hudSog) hudSog.textContent = sog!==null ? sog.toFixed(1) : '–';
   document.getElementById('cogVal').textContent = cog!==null ? Math.round(cog) : '–';
   document.getElementById('hdgVal').textContent = refHdg!==null ? Math.round(refHdg) : '–';
   document.getElementById('windRefVal').textContent = windRef!==null ? Math.round(windRef) : '–';

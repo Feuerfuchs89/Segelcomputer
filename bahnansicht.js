@@ -235,7 +235,11 @@ function courseViewChipText(t, info){
   const wd = windwardDistance(t);
   let s = `→ ${t.name} ${Math.round(info.dist)} m`;
   if(wd!==null && (t.kind==='wind' || t.kind==='lee' || t.kind==='gate' || t.kind==='offset'))
-    s += ` · ${Math.round(Math.abs(wd))} m ${wd>=0?'in Luv':'in Lee'} (${(Math.abs(wd)/LADDER_STEP).toFixed(1).replace('.',',')} Sprossen)`;
+  {
+    const up = legUpwind(t), past = up ? wd < 0 : wd > 0;   // an der Tonne vorbei: Kreuz → Tonne in Lee, Vorwind → Tonne in Luv
+    s += past ? ` · ÜBERSEGELT – Tonne ${Math.round(Math.abs(wd))} m ${wd>=0?'in Luv':'in Lee'}`
+              : ` · ${Math.round(Math.abs(wd))} m ${wd>=0?'in Luv':'in Lee'} (${(Math.abs(wd)/LADDER_STEP).toFixed(1).replace('.',',')} Sprossen)`;
+  }
   return s;
 }
 let cvLast = null, cvDrag = null;

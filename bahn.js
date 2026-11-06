@@ -310,6 +310,19 @@ function stepTarget(d){
   persistCourse(); bahnRedraw(); bahnTick();
 }
 function roundRadius(){ return Math.max(15, boatLen()*3); }
+/* Ist der Schenkel zu dieser Tonne eine Kreuz (true) oder ein Vorwind-Schenkel (false)?
+   Entscheidend ist die Rolle der Tonne bzw. die Schenkelrichtung – NICHT die aktuelle
+   Bootsposition. Sonst kippen die Laylines um, sobald man die Luvtonne übersegelt hat
+   (Boot liegt dann in Luv der Tonne) und zeigen fälschlich die Vorwind-Laylines. */
+function legUpwind(t){
+  if(windRef===null || !t) return true;
+  if(t.kind==='wind' || t.kind==='offset') return true;
+  if(t.kind==='lee' || t.kind==='gate') return false;
+  const s = (typeof legStartPoint==='function') ? legStartPoint() : null;
+  if(s && haversineDist(s, t) > 30) return Math.abs(angleDiff(bearing(s, t), windRef)) < 90;
+  if(pos) return Math.abs(angleDiff(bearing(pos, t), windRef)) < 90;
+  return true;
+}
 /* Laylines & Kursinfo zur aktiven Tonne */
 function targetInfo(t){
   if(!t || !pos) return null;
@@ -317,7 +330,7 @@ function targetInfo(t){
   if(windRef===null) return { dist, brg };
   const rel = angleDiff(brg, windRef), relAbs = Math.abs(rel);
   const a = currentAngles();
-  const upwind = relAbs < 90;
+  const upwind = legUpwind(t); // Kreuz oder Vorwind hängt vom Schenkel ab, nicht davon, wo das Boot gerade ist
   const opt = upwind ? a.up : a.down;
   // Einheitlich: <0 noch nicht an der Layline, ≈0 Layline, >0 übersegelt.
   // Kreuz: Tonne direkt in Luv (0°) → weit weg von der Layline.
@@ -613,7 +626,7 @@ function laylineRays(t){
   if(windRef===null || !t || t.kind==='finish') return [];
   const info = pos ? targetInfo(t) : null;
   const a = currentAngles();
-  const upwind = info ? info.upwind : true;
+  const upwind = legUpwind(t);
   const opt = upwind ? a.up : a.down;
   const len = Math.min(900, Math.max(150, course.leg*0.9));
   const rays = [];

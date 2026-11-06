@@ -284,6 +284,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 .buoy-lbl{ position:absolute; left:20px; top:0; white-space:nowrap; font:700 11px 'Inter',sans-serif; color:var(--text);
   background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:1px 5px; pointer-events:none; }
 .ruler-tip{ white-space:nowrap; }
+.move-handle.rot{ width:40px; height:40px; font-size:22px; background:rgba(58,134,255,0.92); color:#fff; }
 .move-handle{ width:46px; height:46px; border-radius:50%; background:rgba(255,183,3,0.92); color:#071822; border:3px solid #fff;
   display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; box-shadow:0 2px 10px rgba(0,0,0,0.45); }
 .ruler-tip::before{ display:none; }
@@ -443,7 +444,12 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
         <li><b>🧭 Automatisch auslegen:</b> Bahnform, Kreuzlänge, Runden und Bootszahl wählen. Die Bahn wird nach dem aktuellen Wind ausgerichtet und mit größtmöglichem Abstand zu Ufer und Inseln auf den See gelegt. Ist der See zu klein, wird die Kreuz gekürzt.</li>
         <li><b>↻ Nach Wind drehen:</b> dreht die Bahn um die Startlinie auf den aktuellen Wind. Bei 10° Winddrehung oder mehr erscheint ein Hinweis zum Antippen.</li>
         <li><b>＋ Tonne:</b> antippen, dann auf die Karte tippen. Tonnen (auch Startschiff, Pin und Luv) lassen sich verschieben. Eine Tonne antippen → löschen oder als nächstes Ziel.</li>
-        <li><b>✥ Bahn:</b> verschiebt die ganze Bahn. Am gelben ✥ in der Bahnmitte ziehen, oder auf die Karte tippen, dann springt die Bahn dorthin. Die Ausrichtung zum Wind bleibt. Danach prüft die App, ob alle Tonnen auf dem Wasser liegen, und warnt, wenn eine an Land oder zu nah am Ufer liegt.</li>
+        <li><b>✥ Bahn:</b> die ganze Bahn mit allen Tonnen anpacken.
+          <ul>
+            <li>Gelber Griff ✥: verschieben, oder auf die Karte tippen, dann springt die Bahn dorthin.</li>
+            <li>Blauer Griff ⟳: um die Bahnmitte drehen. So kannst du eine schiefe Bahn korrigieren oder bewusst schief legen und Seiten- bzw. Linienvorteil trainieren.</li>
+            <li>Danach zeigt die App, ob alle Tonnen auf dem Wasser liegen und wie die Bahnachse zum Wind steht, z. B. „12° schief, linke Seite & Pin-Ende bevorzugt“.</li>
+          </ul></li>
         <li><b>📏 Messen:</b> Punkte antippen → Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.</li>
         <li>Rote gestrichelte Linien sind die <b>Laylines</b> der aktiven Tonne. Gerundete Tonnen erkennt die App selbst und schaltet zur nächsten weiter. Das Ziel ist die Startlinie.</li>
         <li>Setzen und Messen geht nur auf der Echtkarte (🌐). Die Offline-Karte zeigt alles nur an.</li>
@@ -455,7 +461,10 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
       <ul>
         <li><b>Lineal:</b> Linien alle 50 m quer zum Wind, ausgehend von der Tonne (gelbe Linie). Wer auf derselben Linie liegt, ist gleich weit in Luv. Jede zweite Linie ist mit dem Abstand zur Tonne beschriftet.</li>
         <li>Oben steht dein Abstand <b>in Windrichtung</b> zur Tonne, z. B. „230 m in Luv (4,6 Sprossen)“. Diese Zahl kannst du mit Booten neben dir vergleichen.</li>
-        <li>Blauer Pfeil = Wind, „N“ = Norden. + / – zoomen, FIT = automatischer Ausschnitt.</li>
+        <li><b>Windpfeile:</b> dezente, fließende Pfeile in Windrichtung, je nach Windquelle (z. B. Internet). Dreht der Wind, drehen Pfeile und Lineal mit. Unten rechts stehen Richtung, Stärke und Quelle. Abschalten über „💨 Wind“.</li>
+        <li><b>Startlinienvorteil:</b> Am bevorzugten Ende steht grün z. B. „▲ Boot 10 m in Luv“. An den Lineal-Linien siehst du, wie schief die Linie zum Wind liegt.</li>
+        <li><b>Bearbeiten geht auch hier:</b> ＋ Tonne, 📏 Messen und ✥ Bahn (gelber Griff = verschieben, blauer ⟳ = um die Mitte drehen). Während du ziehst, bleibt die Ansicht stehen.</li>
+        <li>„N“ = Norden. + / – zoomen, FIT = automatischer Ausschnitt.</li>
       </ul>
       <span class="muted">Die App kennt nur dein eigenes Boot. Die anderen Boote siehst du auf dem Wasser, nicht auf der Karte.</span>
     </div></details>

@@ -62,9 +62,9 @@ function drawCourseView(){
     ctx.fillStyle = themeColor('--dim','#6F98A3'); ctx.font = `${13*dpr}px Inter, sans-serif`; ctx.textAlign='center';
     ctx.fillText('Keine Bahn und keine Position', W/2, H/2); return;
   }
-  const up = viewUpBearing(t), ur = up*Math.PI/180;
-  const U = { x:Math.sin(ur), y:Math.cos(ur) }, R = { x:Math.cos(ur), y:-Math.sin(ur) };
-  const frame = p => { const l = toLocalXY(ref, p); return { a: l.x*U.x + l.y*U.y, b: l.x*R.x + l.y*R.y }; };
+  let up = viewUpBearing(t), ur = up*Math.PI/180, ref0 = ref;
+  let U = { x:Math.sin(ur), y:Math.cos(ur) }, R = { x:Math.cos(ur), y:-Math.sin(ur) };
+  let frame = p => { const l = toLocalXY(ref0, p); return { a: l.x*U.x + l.y*U.y, b: l.x*R.x + l.y*R.y }; };
 
   // Ausschnitt: Boot, Ziel, Schenkelstart (+ Startlinie) – Ziel bleibt oben
   const pts = [];
@@ -77,11 +77,21 @@ function drawCourseView(){
   const half = Math.max(40, (aMax-aMin)*0.1);
   aMin -= half; aMax += half*0.3; bMin -= half; bMax += half;
   // Bildränder freihalten: oben Werkzeugleiste + Ziel-Chip, unten Maßstab, rechts Zoomknöpfe
-  const padT = 96*dpr, padB = 34*dpr, padL = 46*dpr, padR = 56*dpr;
+  const padT = cvTopPad()*dpr, padB = 34*dpr, padL = 46*dpr, padR = 56*dpr;
   const iw = Math.max(40, W-padL-padR), ih = Math.max(40, H-padT-padB);
-  const sc = Math.min(iw/(bMax-bMin), ih/(aMax-aMin)) * mapUserScale;
-  const cx = padL + iw/2 - ((bMin+bMax)/2)*sc + mapUserOffset.x, cy = padT + ih/2 + ((aMin+aMax)/2)*sc + mapUserOffset.y;
+  let sc = Math.min(iw/(bMax-bMin), ih/(aMax-aMin)) * mapUserScale;
+  let cx = padL + iw/2 - ((bMin+bMax)/2)*sc + mapUserOffset.x, cy = padT + ih/2 + ((aMin+aMax)/2)*sc + mapUserOffset.y;
+  // Während man die Bahn zieht oder dreht, bleibt die Ansicht stehen – sonst liefe sie mit
+  if(cvDrag && cvDrag.frozen){
+    ({ ref:ref0, up, sc, cx, cy } = cvDrag.frozen); ur = up*Math.PI/180;
+    U = { x:Math.sin(ur), y:Math.cos(ur) }; R = { x:Math.cos(ur), y:-Math.sin(ur) };
+    frame = p => { const l = toLocalXY(ref0, p); return { a: l.x*U.x + l.y*U.y, b: l.x*R.x + l.y*R.y }; };
+  }
+  cvLast = { ref:ref0, up, sc, cx, cy, dpr };
   const toC = p => { const f = frame(p); return { cx: cx + f.b*sc, cy: cy - f.a*sc }; };
+
+  // Dezente Windpfeile (Richtung aus der Windquelle, z. B. Internet), fließen mit dem Wind
+  if(windRef!==null && windArrowsEnabled) drawCvWind(ctx, W, H, dpr, up);
 
   // Lineal quer zum Wind, verankert an der Tonne
   if(windRef!==null && t){
@@ -134,6 +144,22 @@ function drawCourseView(){
     ctx.setLineDash([6*dpr,5*dpr]); ctx.strokeStyle = themeColor('--text','#EAF3F2'); ctx.lineWidth = 2*dpr;
     ctx.beginPath(); ctx.moveTo(a.cx,a.cy); ctx.lineTo(b.cx,b.cy); ctx.stroke(); ctx.setLineDash([]);
     drawMarker(ctx, a.cx, a.cy, '#3A86FF', 'Boot', dpr); drawMarker(ctx, b.cx, b.cy, '#3A86FF', 'Pin', dpr);
+    // Startlinienvorteil: welches Ende liegt wie viele Meter weiter in Luv?
+    if(windRef!==null){
+      const wr = windRef*Math.PI/180, d = toLocalXY(lineBoat, linePin);
+      const adv = d.x*Math.sin(wr) + d.y*Math.cos(wr);            // > 0: Pin liegt in Luv
+      if(Math.abs(adv) >= 2){
+        const fav = adv > 0 ? b : a, name = adv > 0 ? 'Pin' : 'Boot';
+        const txt = `▲ ${name} ${Math.round(Math.abs(adv))} m in Luv`;
+        ctx.font = `700 ${11*dpr}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const w = ctx.measureText(txt).width + 12*dpr, y = fav.cy + 20*dpr;
+        ctx.fillStyle = 'rgba(29,185,84,0.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(fav.cx-w/2, y-10*dpr, w, 20*dpr, 8*dpr) : ctx.rect(fav.cx-w/2, y-10*dpr, w, 20*dpr); ctx.fill();
+        ctx.fillStyle = '#071822'; ctx.fillText(txt, fav.cx, y);
+      } else {
+        ctx.font = `600 ${10.5*dpr}px Inter, sans-serif`; ctx.textAlign='center'; ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText('Linie quadratisch zum Wind', (a.cx+b.cx)/2, (a.cy+b.cy)/2 + 18*dpr);
+      }
+    }
   }
   // Track
   if(trackLog.length > 1){
@@ -176,10 +202,31 @@ function drawCourseView(){
     ctx.beginPath(); ctx.moveTo(0,13*dpr); ctx.lineTo(-5*dpr,5*dpr); ctx.lineTo(5*dpr,5*dpr); ctx.closePath(); ctx.fill();
     ctx.restore();
   }
+  if(windRef!==null){
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `600 ${10.5*dpr}px Inter, sans-serif`; ctx.textAlign='right'; ctx.textBaseline='middle';
+    const src = windSource==='live' ? 'Internet' : windSource==='manual' ? 'manuell' : 'gepingt';
+    ctx.fillText(`${Math.round(windRef)}° · ${Math.round(currentTWS())} kn · ${src}`, ox - 14*dpr, oy);
+  }
   ctx.save(); ctx.translate(ox+30*dpr, oy); ctx.rotate(-up*Math.PI/180);
   ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `700 ${10*dpr}px Inter, sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('N', 0, -9*dpr); ctx.beginPath(); ctx.moveTo(0,-3*dpr); ctx.lineTo(3.5*dpr,6*dpr); ctx.lineTo(-3.5*dpr,6*dpr); ctx.closePath(); ctx.fill();
   ctx.restore();
+
+  // Bearbeiten: Griffe zum Verschieben (✥) und Drehen (⟳)
+  if(mapToolMode==='bahn'){
+    const c = courseCenter();
+    if(c){
+      // Drehgriff seitlich neben dem Mittelgriff – oben verdecken Werkzeugleiste und Ziel-Chip
+      const m = toC(c), off = 104*dpr, r = { cx: m.cx + off > W - 70*dpr ? m.cx - off : m.cx + off, cy: m.cy };
+      cvLast.handles = { move:m, rot:r };
+      ctx.strokeStyle = 'rgba(255,183,3,0.8)'; ctx.lineWidth = 2*dpr; ctx.setLineDash([4*dpr,6*dpr]);
+      ctx.beginPath(); ctx.moveTo(m.cx,m.cy); ctx.lineTo(r.cx,r.cy); ctx.stroke(); ctx.setLineDash([]);
+      const knob = (q, col, fg, sym, rad)=>{ ctx.fillStyle = col; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3*dpr; ctx.beginPath(); ctx.arc(q.cx,q.cy,rad*dpr,0,7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = fg; ctx.font = `800 ${rad*1.1*dpr}px Inter, sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(sym, q.cx, q.cy+1*dpr); };
+      knob(m, 'rgba(255,183,3,0.95)', '#071822', '✥', 21);
+      knob(r, 'rgba(58,134,255,0.95)', '#fff', '⟳', 18);
+    }
+  } else if(cvLast) cvLast.handles = null;
 
   drawScaleBar(sc, dpr, W, H);
 }
@@ -191,7 +238,89 @@ function courseViewChipText(t, info){
     s += ` · ${Math.round(Math.abs(wd))} m ${wd>=0?'in Luv':'in Lee'} (${(Math.abs(wd)/LADDER_STEP).toFixed(1).replace('.',',')} Sprossen)`;
   return s;
 }
+let cvLast = null, cvDrag = null;
+/* Platz oben, den Werkzeugleiste und Ziel-Chip belegen (CSS-Pixel) */
+function cvTopPad(){
+  const st = mapStageEl.getBoundingClientRect(); let bottom = 40;
+  for(const id of ['mapToolbar','mapNavChip','mapCountdownOverlay']){
+    const el = document.getElementById(id);
+    if(!el || getComputedStyle(el).display === 'none') continue;
+    const r = el.getBoundingClientRect(); if(r.height) bottom = Math.max(bottom, r.bottom - st.top);
+  }
+  return bottom + 18;
+}
+/* Fließende, dezente Windpfeile im gedrehten Bild */
+function drawCvWind(ctx, W, H, dpr, up){
+  const dir = (windRef + 180 - up) * Math.PI/180;                    // wohin der Wind weht, im Bild
+  const vx = Math.sin(dir), vy = -Math.cos(dir);
+  const sp = 96*dpr, speed = (10 + currentTWS()*1.6)*dpr;
+  const ph = (performance.now()/1000*speed) % sp;
+  const len = (10 + Math.min(14, currentTWS()*0.6))*dpr;
+  ctx.save(); ctx.strokeStyle = 'rgba(160,205,255,0.22)'; ctx.lineWidth = 1.6*dpr; ctx.lineCap = 'round';
+  for(let gx=-sp; gx<W+sp; gx+=sp){
+    for(let gy=-sp; gy<H+sp; gy+=sp){
+      const off = ((Math.floor(gy/sp)%2)+2)%2 * sp/2;                 // versetzte Reihen wirken ruhiger
+      const x = gx + off + vx*ph, y = gy + vy*ph;
+      const x0 = x - vx*len/2, y0 = y - vy*len/2, x1 = x + vx*len/2, y1 = y + vy*len/2;
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1);
+      ctx.moveTo(x1,y1); ctx.lineTo(x1 - vx*5*dpr - vy*3.5*dpr, y1 - vy*5*dpr + vx*3.5*dpr);
+      ctx.moveTo(x1,y1); ctx.lineTo(x1 - vx*5*dpr + vy*3.5*dpr, y1 - vy*5*dpr - vx*3.5*dpr);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+/* Bildpunkt → Position (Umkehrung der Ansicht) */
+function cvToGeo(px, py){
+  const L0 = cvLast; if(!L0) return null;
+  const ur = L0.up*Math.PI/180, U = { x:Math.sin(ur), y:Math.cos(ur) }, R = { x:Math.cos(ur), y:-Math.sin(ur) };
+  const b = (px - L0.cx)/L0.sc, a = (L0.cy - py)/L0.sc;
+  return fromLocalXY(L0.ref, { x: a*U.x + b*R.x, y: a*U.y + b*R.y });
+}
+function cvPoint(e){
+  const r = mapCanvas.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  return { x:(e.clientX - r.left)*d, y:(e.clientY - r.top)*d };
+}
+/* Bearbeiten direkt in der Lineal-Ansicht: Tonne setzen, messen, Bahn ziehen/drehen */
+function wireCourseViewEditing(){
+  mapCanvas.addEventListener('pointerdown', e=>{
+    if(!courseView || !mapToolMode || !cvLast) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    try{ mapCanvas.setPointerCapture(e.pointerId); }catch(_){}
+    const p = cvPoint(e), d = cvLast.dpr, h = cvLast.handles;
+    const frozen = { ref:cvLast.ref, up:cvLast.up, sc:cvLast.sc, cx:cvLast.cx, cy:cvLast.cy };
+    if(mapToolMode==='bahn' && h && Math.hypot(p.x-h.rot.cx, p.y-h.rot.cy) < 30*d){
+      const c = courseCenter();
+      cvDrag = { mode:'rot', frozen, c, a0: Math.atan2(p.x-h.move.cx, -(p.y-h.move.cy))*180/Math.PI };
+    } else if(mapToolMode==='bahn' && h && Math.hypot(p.x-h.move.cx, p.y-h.move.cy) < 32*d){
+      cvDrag = { mode:'move', frozen, last: cvToGeo(p.x, p.y) };
+    } else cvDrag = { mode:'tap', frozen:null, x:p.x, y:p.y };
+  }, true);
+  mapCanvas.addEventListener('pointermove', e=>{
+    if(!cvDrag || cvDrag.mode==='tap') return;
+    e.stopImmediatePropagation();
+    const p = cvPoint(e);
+    if(cvDrag.mode==='move'){
+      const g = cvToGeo(p.x, p.y); shiftCourse(g.lat - cvDrag.last.lat, g.lon - cvDrag.last.lon); cvDrag.last = g;
+    } else {
+      const m = cvLast.handles.move, a = Math.atan2(p.x-m.cx, -(p.y-m.cy))*180/Math.PI;
+      rotateCourse(angleDiff(a, cvDrag.a0), cvDrag.c); cvDrag.a0 = a;
+    }
+  }, true);
+  const end = e=>{
+    if(!cvDrag) return;
+    e.stopImmediatePropagation();
+    const dr = cvDrag; cvDrag = null;
+    if(dr.mode==='tap'){
+      const p = cvPoint(e);
+      if(Math.hypot(p.x-dr.x, p.y-dr.y) < 12*(window.devicePixelRatio||1)){ const g = cvToGeo(p.x, p.y); if(g) onMapTap(g.lat, g.lon); }
+    } else finishCourseMove(dr.mode==='rot' ? 'rot' : 'move');
+  };
+  mapCanvas.addEventListener('pointerup', end, true);
+  mapCanvas.addEventListener('pointercancel', e=>{ if(cvDrag && cvDrag.mode!=='tap') finishCourseMove(cvDrag.mode==='rot'?'rot':'move'); cvDrag = null; }, true);
+}
 function courseViewInit(){
+  wireCourseViewEditing();
   document.getElementById('courseViewChip').classList.toggle('active', courseView);
   document.getElementById('courseViewChip').addEventListener('click', ()=>setCourseView(!courseView));
 }

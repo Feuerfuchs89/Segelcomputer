@@ -421,16 +421,16 @@ function setMapTool(mode){
   hint.style.display = mapToolMode ? 'block' : 'none';
   hint.textContent = mapToolMode==='tonne' ? 'Tippe auf die Karte, um eine Tonne zu setzen. Tonnen lassen sich ziehen; Tippen auf eine Tonne → löschen / als Ziel.'
                    : mapToolMode==='lineal' ? 'Tippe Punkte auf die Karte – Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.'
-                   : mapToolMode==='bahn' ? 'Ganze Bahn verschieben: am ✥ in der Bahnmitte ziehen oder auf die Karte tippen – die Bahn springt dorthin. Ausrichtung zum Wind bleibt.' : '';
+                   : mapToolMode==='bahn' ? 'Ganze Bahn: am ✥ ziehen = verschieben, am ⟳ ziehen = drehen, auf die Karte tippen = Bahn springt dorthin.' : '';
   if(mapToolMode==='bahn' && !allCoursePoints().length){ showToast('Noch keine Bahn – erst „Automatisch auslegen“ oder Tonnen setzen.'); }
   bahnDrawMoveHandle();
   if(mapToolMode==='lineal' && course.ruler.length>=2){ course.ruler = []; persistCourse(); bahnRedraw(); }
-  if(mapToolMode && !realMapActive()) showToast('Setzen & Messen geht auf der Echtkarte (🌐). Die Offline-Karte zeigt alles an.');
+  if(mapToolMode && !realMapActive() && !courseView) showToast('Bearbeiten geht auf der Echtkarte (🌐) oder in „Ziel oben + Lineal“.');
 }
 function onMapTap(lat, lon){
   if(mapToolMode==='bahn'){
     const c = courseCenter(); if(!c) return;
-    shiftCourse(lat - c.lat, lon - c.lon); finishCourseMove(); return;
+    shiftCourse(lat - c.lat, lon - c.lon); finishCourseMove('move'); return;
   }
   if(mapToolMode==='tonne'){
     const n = course.marks.filter(m=>m.kind==='frei').length + 1;
@@ -471,10 +471,28 @@ function shiftCourse(dLat, dLon){
   course.marks.forEach(mv);
 }
 /* Nach dem Verschieben: speichern, neu zeichnen, Abstand zum Ufer prüfen */
-function finishCourseMove(){
-  lastLaylineState = null; roundState = { inside:false, minDist:1e9 }; lastFinishSide = null;
+/* Ganze Bahn um einen Punkt drehen (deg > 0 = im Uhrzeigersinn). Die Bahnachse
+   (course.axis) dreht mit – so zeigt die App danach, wie schief Bahn und Wind zueinander stehen. */
+function rotateCourse(deg, c){
+  const t = deg*Math.PI/180, cs = Math.cos(t), sn = Math.sin(t);
+  const rot = p=>{ if(!p) return; const l = toLocalXY(c, p); const q = fromLocalXY(c, { x: l.x*cs + l.y*sn, y: -l.x*sn + l.y*cs }); p.lat = q.lat; p.lon = q.lon; };
+  rot(lineBoat); rot(linePin); rot(markPos);
+  course.marks.forEach(rot);
+  if(course.axis!==null && course.axis!==undefined) course.axis = (course.axis + deg + 360) % 360;
+  else if(lineBoat && markPos) course.axis = bearing({ lat:(lineBoat.lat+(linePin||lineBoat).lat)/2, lon:(lineBoat.lon+(linePin||lineBoat).lon)/2 }, markPos);
+}
+function axisInfoText(){
+  if(course.axis===null || course.axis===undefined || windRef===null) return '';
+  const d = angleDiff(course.axis, windRef);
+  if(Math.abs(d) < 3) return ` · Achse ${Math.round(course.axis)}° passt zum Wind`;
+  // Achse rechts vom Wind → Bahn nach rechts gedreht → Wind kommt von links: linke Seite/Pin bevorzugt
+  return ` · Achse ${Math.round(course.axis)}°, Wind ${Math.round(windRef)}° → ${Math.round(Math.abs(d))}° schief, ${d>0?'linke Seite & Pin-Ende':'rechte Seite & Startschiff'} bevorzugt`;
+}
+function finishCourseMove(kind){
+  const what = kind==='rot' ? 'gedreht' : 'verschoben';
+  lastLaylineState = null; roundState = { inside:false, minDist:1e9 }; lastFinishSide = null; windShiftWarned = false;
   persistRefPoints(); persistCourse(); redrawLeafletStatics(); bahnRedraw(); bahnDrawMoveHandle();
-  if(!lakeXY){ setCourseHint('Bahn verschoben (kein Ufer geladen – keine Prüfung, ob alles auf dem Wasser liegt).'); return; }
+  if(!lakeXY){ setCourseHint(`Bahn ${what}${axisInfoText()} (kein Ufer geladen – keine Uferprüfung).`); return; }
   const named = [[lineBoat,'Startschiff'],[linePin,'Pin'],[markPos,'Luvtonne'], ...course.marks.map(m=>[m,m.name])].filter(x=>x[0]);
   let worst = null;
   for(const [p,n] of named){
@@ -482,15 +500,37 @@ function finishCourseMove(){
     if(!worst || d < worst.d) worst = { d, n };
   }
   if(worst.d < 0){ setCourseHint(`⚠️ ${worst.n} liegt an Land oder auf einer Insel – Bahn weiter aufs Wasser schieben.`); vibrate(200); }
-  else if(worst.d < 30) setCourseHint(`⚠️ ${worst.n} nur ${Math.round(worst.d)} m vom Ufer – knapp.`);
-  else setCourseHint(`Bahn verschoben · alle Tonnen auf dem Wasser · min. ${Math.round(worst.d)} m Abstand (${worst.n}).`);
+  else if(worst.d < 30) setCourseHint(`⚠️ ${worst.n} nur ${Math.round(worst.d)} m vom Ufer – knapp.${axisInfoText()}`);
+  else setCourseHint(`Bahn ${what} · alle Tonnen auf dem Wasser · min. ${Math.round(worst.d)} m Abstand${axisInfoText()}`);
 }
-let llMoveHandle = null;
+/* Griff zum Drehen: hinter der Luvtonne, auf der Linie Bahnmitte → Luvtonne */
+function rotateHandlePos(c){
+  const tip = markPos || (course.marks[0] || null);
+  if(!tip) return fromLocalXY(c, { x:0, y:150 });
+  const l = toLocalXY(c, tip), d = Math.hypot(l.x, l.y) || 1, k = (d + Math.max(40, d*0.18)) / d;
+  return fromLocalXY(c, { x:l.x*k, y:l.y*k });
+}
+let llMoveHandle = null, llRotHandle = null, llRotLine = null;
 function bahnDrawMoveHandle(){
   if(!leafletMap) return;
-  if(llMoveHandle){ leafletMap.removeLayer(llMoveHandle); llMoveHandle = null; }
+  [llMoveHandle, llRotHandle, llRotLine].forEach(l=>{ if(l) leafletMap.removeLayer(l); });
+  llMoveHandle = llRotHandle = llRotLine = null;
   if(mapToolMode!=='bahn') return;
   const c = courseCenter(); if(!c) return;
+  // Drehgriff ⟳ – dreht die ganze Bahn um ihre Mitte
+  const rp = rotateHandlePos(c);
+  llRotLine = L.polyline([[c.lat,c.lon],[rp.lat,rp.lon]], { color:'#FFB703', weight:2, dashArray:'4,6', opacity:0.8, interactive:false }).addTo(leafletMap);
+  llRotHandle = L.marker([rp.lat, rp.lon], { draggable:true, autoPan:true, zIndexOffset:1000,
+    icon:L.divIcon({ className:'move-wrap', iconSize:[40,40], iconAnchor:[20,20], html:'<div class="move-handle rot">⟳</div>' }) }).addTo(leafletMap);
+  let bPrev = null;
+  llRotHandle.on('dragstart', ()=>{ const q = llRotHandle.getLatLng(); bPrev = bearing(c, { lat:q.lat, lon:q.lng }); });
+  llRotHandle.on('drag', ()=>{
+    const q = llRotHandle.getLatLng(), b = bearing(c, { lat:q.lat, lon:q.lng });
+    rotateCourse(angleDiff(b, bPrev), c); bPrev = b;
+    llRotLine.setLatLngs([[c.lat,c.lon],[q.lat,q.lng]]);
+    redrawLeafletStatics(); bahnDrawLeaflet();
+  });
+  llRotHandle.on('dragend', ()=>finishCourseMove('rot'));
   llMoveHandle = L.marker([c.lat, c.lon], { draggable:true, autoPan:true, zIndexOffset:1000,
     icon:L.divIcon({ className:'move-wrap', iconSize:[46,46], iconAnchor:[23,23], html:'<div class="move-handle">✥</div>' }) }).addTo(leafletMap);
   let last = null;
@@ -500,7 +540,7 @@ function bahnDrawMoveHandle(){
     shiftCourse(q.lat - last.lat, q.lng - last.lon); last = { lat:q.lat, lon:q.lng };
     redrawLeafletStatics(); bahnDrawLeaflet();
   });
-  llMoveHandle.on('dragend', finishCourseMove);
+  llMoveHandle.on('dragend', ()=>finishCourseMove('move'));
 }
 
 /* ---------------- Zeichnen: Leaflet ---------------- */

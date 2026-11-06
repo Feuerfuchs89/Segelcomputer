@@ -87,7 +87,7 @@ function drawCourseView(){
     U = { x:Math.sin(ur), y:Math.cos(ur) }; R = { x:Math.cos(ur), y:-Math.sin(ur) };
     frame = p => { const l = toLocalXY(ref0, p); return { a: l.x*U.x + l.y*U.y, b: l.x*R.x + l.y*R.y }; };
   }
-  cvLast = { ref:ref0, up, sc, cx, cy, dpr };
+  cvLast = { ref:ref0, up, sc, cx, cy, dpr, C:{ x: padL + iw/2, y: padT + ih/2 } };
   const toC = p => { const f = frame(p); return { cx: cx + f.b*sc, cy: cy - f.a*sc }; };
 
   // Dezente Windpfeile (Richtung aus der Windquelle, z. B. Internet), fließen mit dem Wind
@@ -106,7 +106,7 @@ function drawCourseView(){
       const ca = T.a - Wa*k*LADDER_STEP, cb = T.b - Wb*k*LADDER_STEP;   // k>0 = Richtung Lee
       const x1 = cx + (cb - Pb*diag)*sc, y1 = cy - (ca - Pa*diag)*sc;
       const x2 = cx + (cb + Pb*diag)*sc, y2 = cy - (ca + Pa*diag)*sc;
-      ctx.strokeStyle = k===0 ? 'rgba(255,183,3,0.55)' : (k%2===0 ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.10)');
+      ctx.strokeStyle = k===0 ? cvGold() : (k%2===0 ? cvInk(0.24) : cvInk(0.10));
       ctx.lineWidth = (k===0 ? 2 : 1)*dpr;
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       if(k!==0 && k%2===0){
@@ -115,7 +115,7 @@ function drawCourseView(){
         if(Math.abs(dx) > 1){
           const tt = (px - x1)/dx, py = y1 + dy*tt;
           if(py > 100*dpr && py < H-40*dpr){
-            ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.textAlign = 'left';
+            ctx.fillStyle = cvInk(0.55); ctx.textAlign = 'left';
             ctx.fillText((Math.abs(k)*LADDER_STEP)+' m', px, py-7*dpr);
           }
         }
@@ -156,13 +156,13 @@ function drawCourseView(){
         ctx.fillStyle = 'rgba(29,185,84,0.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(fav.cx-w/2, y-10*dpr, w, 20*dpr, 8*dpr) : ctx.rect(fav.cx-w/2, y-10*dpr, w, 20*dpr); ctx.fill();
         ctx.fillStyle = '#071822'; ctx.fillText(txt, fav.cx, y);
       } else {
-        ctx.font = `600 ${10.5*dpr}px Inter, sans-serif`; ctx.textAlign='center'; ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = `600 ${10.5*dpr}px Inter, sans-serif`; ctx.textAlign='center'; ctx.fillStyle = cvInk(0.7);
         ctx.fillText('Linie quadratisch zum Wind', (a.cx+b.cx)/2, (a.cy+b.cy)/2 + 18*dpr);
       }
     }
   }
   // Track
-  if(trackLog.length > 1){
+  if(showTrack && trackLog.length > 1){
     const maxSog = runMaxSog(trackLog);
     ctx.lineWidth = 3*dpr; ctx.lineCap = 'round';
     for(let i=1;i<trackLog.length;i++){
@@ -182,7 +182,7 @@ function drawCourseView(){
   // Peillinie Boot → Ziel
   if(pos && t){
     const a = toC(pos), b = toC(t);
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.2*dpr; ctx.setLineDash([2*dpr,6*dpr]);
+    ctx.strokeStyle = cvInk(0.6); ctx.lineWidth = 1.2*dpr; ctx.setLineDash([2*dpr,6*dpr]);
     ctx.beginPath(); ctx.moveTo(a.cx,a.cy); ctx.lineTo(b.cx,b.cy); ctx.stroke(); ctx.setLineDash([]);
   }
   // Eigenes Boot
@@ -203,12 +203,12 @@ function drawCourseView(){
     ctx.restore();
   }
   if(windRef!==null){
-    ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `600 ${10.5*dpr}px Inter, sans-serif`; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillStyle = cvInk(0.75); ctx.font = `600 ${10.5*dpr}px Inter, sans-serif`; ctx.textAlign='right'; ctx.textBaseline='middle';
     const src = windSource==='live' ? 'Internet' : windSource==='manual' ? 'manuell' : 'gepingt';
     ctx.fillText(`${Math.round(windRef)}° · ${Math.round(currentTWS())} kn · ${src}`, ox - 14*dpr, oy);
   }
   ctx.save(); ctx.translate(ox+30*dpr, oy); ctx.rotate(-up*Math.PI/180);
-  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `700 ${10*dpr}px Inter, sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle = cvInk(0.75); ctx.font = `700 ${10*dpr}px Inter, sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('N', 0, -9*dpr); ctx.beginPath(); ctx.moveTo(0,-3*dpr); ctx.lineTo(3.5*dpr,6*dpr); ctx.lineTo(-3.5*dpr,6*dpr); ctx.closePath(); ctx.fill();
   ctx.restore();
 
@@ -239,6 +239,16 @@ function courseViewChipText(t, info){
   return s;
 }
 let cvLast = null, cvDrag = null;
+/* Farben passend zum Anzeigemodus: auf „Hell (Sonne)“ dunkle, kräftigere Linien */
+function cvTheme(){ return document.documentElement.dataset.theme || 'dunkel'; }
+function cvInk(a){
+  const t = cvTheme();
+  if(t === 'hell') return `rgba(18,38,46,${Math.min(1, a*1.9)})`;
+  if(t === 'nacht') return `rgba(255,107,107,${a})`;
+  return `rgba(255,255,255,${a})`;
+}
+function cvGold(){ return cvTheme()==='hell' ? 'rgba(200,130,0,0.9)' : cvTheme()==='nacht' ? 'rgba(255,59,59,0.7)' : 'rgba(255,183,3,0.55)'; }
+function cvWindInk(){ return cvTheme()==='hell' ? 'rgba(30,90,200,0.38)' : cvTheme()==='nacht' ? 'rgba(255,80,80,0.3)' : 'rgba(160,205,255,0.22)'; }
 /* Platz oben, den Werkzeugleiste und Ziel-Chip belegen (CSS-Pixel) */
 function cvTopPad(){
   const st = mapStageEl.getBoundingClientRect(); let bottom = 40;
@@ -256,7 +266,7 @@ function drawCvWind(ctx, W, H, dpr, up){
   const sp = 96*dpr, speed = (10 + currentTWS()*1.6)*dpr;
   const ph = (performance.now()/1000*speed) % sp;
   const len = (10 + Math.min(14, currentTWS()*0.6))*dpr;
-  ctx.save(); ctx.strokeStyle = 'rgba(160,205,255,0.22)'; ctx.lineWidth = 1.6*dpr; ctx.lineCap = 'round';
+  ctx.save(); ctx.strokeStyle = cvWindInk(); ctx.lineWidth = 1.6*dpr; ctx.lineCap = 'round';
   for(let gx=-sp; gx<W+sp; gx+=sp){
     for(let gy=-sp; gy<H+sp; gy+=sp){
       const off = ((Math.floor(gy/sp)%2)+2)%2 * sp/2;                 // versetzte Reihen wirken ruhiger

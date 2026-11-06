@@ -464,7 +464,8 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
         <li><b>Windpfeile:</b> dezente, fließende Pfeile in Windrichtung, je nach Windquelle (z. B. Internet). Dreht der Wind, drehen Pfeile und Lineal mit. Unten rechts stehen Richtung, Stärke und Quelle. Abschalten über „💨 Wind“.</li>
         <li><b>Startlinienvorteil:</b> Am bevorzugten Ende steht grün z. B. „▲ Boot 10 m in Luv“. An den Lineal-Linien siehst du, wie schief die Linie zum Wind liegt.</li>
         <li><b>Bearbeiten geht auch hier:</b> ＋ Tonne, 📏 Messen und ✥ Bahn (gelber Griff = verschieben, blauer ⟳ = um die Mitte drehen). Während du ziehst, bleibt die Ansicht stehen.</li>
-        <li>„N“ = Norden. + / – zoomen, FIT = automatischer Ausschnitt.</li>
+        <li>„N“ = Norden. <b>Zwei Finger</b> aufziehen/zusammenschieben = zoomen, ein Finger = verschieben, + / – geht auch. FIT = automatischer Ausschnitt.</li>
+        <li><b>〰️ Strecke</b> blendet deine gefahrene Strecke ein oder aus, in allen Kartenansichten. Aufgezeichnet wird trotzdem weiter.</li>
       </ul>
       <span class="muted">Die App kennt nur dein eigenes Boot. Die anderen Boote siehst du auf dem Wasser, nicht auf der Karte.</span>
     </div></details>
@@ -751,11 +752,12 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
             <div class="chip active" id="realMapChip" style="padding:5px 10px;">🌐 Echtkarte</div>
             <div class="chip active" id="windArrowsChip" style="padding:5px 10px;">💨 Wind</div>
             <div class="chip" id="courseViewChip" style="padding:5px 10px;">🧭 Ziel oben + Lineal</div>
+            <div class="chip active" id="trackChip" style="padding:5px 10px;">〰️ Strecke</div>
           </div>
         </div>
         <div id="mapStage" style="position:relative; flex:1; width:100%; overflow:hidden;">
           <div id="leafletMap" style="position:absolute; inset:0; display:none;"></div>
-          <canvas id="mapCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:block;"></canvas>
+          <canvas id="mapCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none;"></canvas>
           <canvas id="windOverlayCanvas" style="position:absolute; inset:0; width:100%; height:100%; display:none; pointer-events:none;"></canvas>
           <div id="mapCountdownOverlay">05:00</div>
           <div id="mapToolbar">
@@ -1014,12 +1016,17 @@ function makeDoubleTapFullscreen(el, fullscreenClass, opts){
   // überhaupt entsteht bzw. bis zu diesem Element durchbubbelt. Auf pointerdown/-up in
   // der Capture-Phase zu lauschen (am Element selbst, oberhalb der Leaflet-Kindknoten)
   // bekommt die Geste garantiert mit, unabhängig davon, was Leaflet danach damit macht.
+  const active = new Set(); // mehrere Finger (Zweifingerzoom) sind kein Doppeltipp
   el.addEventListener('pointerdown', (e)=>{
+    active.add(e.pointerId);
+    if(active.size > 1){ tracking=false; lastTapTime=0; return; }
     if(opts.ignoreSelector && e.target.closest(opts.ignoreSelector)) { tracking=false; return; }
     if(opts.blocked && opts.blocked()) { tracking=false; return; }
     tracking = true; downX = e.clientX; downY = e.clientY; downT = Date.now();
   }, true);
+  el.addEventListener('pointercancel', (e)=>{ active.delete(e.pointerId); tracking=false; }, true);
   el.addEventListener('pointerup', (e)=>{
+    active.delete(e.pointerId);
     if(!tracking) return;
     tracking = false;
     const dt = Date.now() - downT;
@@ -1240,8 +1247,11 @@ document.querySelectorAll('[data-src]').forEach(chip=>{
     manualPanelEl.style.display = 'none';
     clearInterval(liveInterval); liveInterval = null;
 
+    try{ localStorage.setItem('segelcomp_windSource', windSource); }catch(e){}
+    clearTimeout(liveRetryTimer);
     if(windSource === 'live'){
       liveStatusEl.style.display = 'block';
+      applyCachedLiveWind();
       fetchLiveWind();
       liveInterval = setInterval(fetchLiveWind, 5*60*1000); // Wettermodell ändert sich nicht sekündlich
     } else if(windSource === 'manual'){
@@ -1285,29 +1295,59 @@ document.getElementById('manualPingCorrectBtn').addEventListener('click', ()=>{
   manualStatusEl.textContent = 'Richtung per Ping korrigiert: '+Math.round(windRef)+'° (Windstärke bleibt manuell: '+(manualTWS!=null?manualTWS+' kn':'–')+').';
 });
 
+/* Live-Wind: zeigt sofort den zuletzt geladenen Wert, wartet nicht 5 Minuten auf
+   den nächsten Versuch, und nimmt ohne GPS-Fix die letzte bekannte Position oder den
+   geladenen See. Abbruch nach 8 s statt endlos zu warten. */
+let liveRetryTimer = null, liveBusy = false;
+function liveWindPos(){
+  if(pos) return pos;
+  if(typeof lake !== 'undefined' && lake && lake.ref) return lake.ref;
+  try{ const c = JSON.parse(localStorage.getItem('segelcomp_liveWind')||'null'); if(c && c.lat) return { lat:c.lat, lon:c.lon }; }catch(e){}
+  return null;
+}
+function applyCachedLiveWind(){
+  try{
+    const c = JSON.parse(localStorage.getItem('segelcomp_liveWind')||'null');
+    if(!c || Date.now() - c.t > 3*3600*1000) return false;
+    windRef = c.dir; liveTWS = c.tws; lastShiftBase = windRef;
+    liveStatusEl.textContent = `Zuletzt geladen ${new Date(c.t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}: ${c.tws.toFixed(1)} kn aus ${compassAbbr(c.dir)} · ${Math.round(c.dir)}° – aktualisiere …`;
+    return true;
+  }catch(e){ return false; }
+}
 async function fetchLiveWind(){
-  if(!pos){
+  if(liveBusy) return;
+  const p = liveWindPos();
+  clearTimeout(liveRetryTimer);
+  if(!p){
     liveStatusEl.textContent = 'Warte auf GPS-Position für Live-Wind …';
+    liveRetryTimer = setTimeout(()=>{ if(windSource==='live') fetchLiveWind(); }, 3000);
     return;
   }
-  liveStatusEl.textContent = 'Lade Live-Wind …';
+  liveBusy = true;
+  if(windRef===null || !liveTWS) liveStatusEl.textContent = 'Lade Live-Wind …';
+  const ctrl = ('AbortController' in window) ? new AbortController() : null;
+  const to = setTimeout(()=>{ if(ctrl) ctrl.abort(); }, 8000);
   try{
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pos.lat.toFixed(3)}&longitude=${pos.lon.toFixed(3)}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn`;
-    const res = await fetch(url);
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat.toFixed(3)}&longitude=${p.lon.toFixed(3)}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn`;
+    const res = await fetch(url, ctrl ? { signal:ctrl.signal, cache:'no-store' } : { cache:'no-store' });
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if(data && data.current && data.current.wind_direction_10m != null){
       windRef = data.current.wind_direction_10m;
       liveTWS = data.current.wind_speed_10m;
       lastShiftBase = windRef;
-      const t = new Date().toLocaleTimeString();
-      liveStatusEl.textContent = `Live: ${liveTWS.toFixed(1)} kn aus ${compassAbbr(windRef)} · ${Math.round(windRef)}° (Open-Meteo, Modell-/Vorhersagedaten für dein Gebiet, abgerufen ${t})`;
+      try{ localStorage.setItem('segelcomp_liveWind', JSON.stringify({ dir:windRef, tws:liveTWS, t:Date.now(), lat:p.lat, lon:p.lon })); }catch(e){}
+      const t = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+      liveStatusEl.textContent = `Live: ${liveTWS.toFixed(1)} kn aus ${compassAbbr(windRef)} · ${Math.round(windRef)}° (Open-Meteo, abgerufen ${t}${pos ? '' : ', Position geschätzt'})`;
+      // Ohne GPS-Fix gleich nochmal mit echter Position, sobald sie da ist
+      if(!pos) liveRetryTimer = setTimeout(()=>{ if(windSource==='live' && pos) fetchLiveWind(); }, 20000);
     } else {
       throw new Error('keine Daten');
     }
   }catch(e){
-    liveStatusEl.textContent = 'Keine Verbindung zu Live-Wind – letzter bekannter Wert bleibt aktiv, oder auf „Pingen" wechseln.';
-  }
+    liveStatusEl.textContent = (e && e.name==='AbortError' ? 'Live-Wind antwortet nicht (Zeitüberschreitung)' : 'Keine Verbindung zu Live-Wind') + ' – neuer Versuch in 30 s. Letzter Wert bleibt aktiv.';
+    liveRetryTimer = setTimeout(()=>{ if(windSource==='live') fetchLiveWind(); }, 30000);
+  }finally{ clearTimeout(to); liveBusy = false; }
 }
 
 /* ================= Sensordaten & Gleitmittel-Filter ================= */
@@ -2420,23 +2460,49 @@ function canvasZoomBy(factor){
   mapUserScale = Math.max(0.3, Math.min(14, mapUserScale*factor));
 }
 function canvasResetView(){ mapUserScale = 1; mapUserOffset = {x:0,y:0}; }
+/* Zoom um einen Bildpunkt (Fingermitte/Mauszeiger): der Punkt unter den Fingern bleibt stehen.
+   Gilt für Offline-Karte und Lineal-Ansicht (Echtkarte zoomt Leaflet selbst). */
+function canvasZoomAt(sx, sy, f){
+  const old = mapUserScale, ns = Math.max(0.3, Math.min(14, old*f)), k = ns/old;
+  if(k === 1) return;
+  const C = (courseView && cvLast && cvLast.C) ? cvLast.C : { x:mapCanvas.width/2, y:mapCanvas.height/2 };
+  mapUserOffset.x = sx - C.x - (sx - C.x - mapUserOffset.x)*k;
+  mapUserOffset.y = sy - C.y - (sy - C.y - mapUserOffset.y)*k;
+  mapUserScale = ns;
+}
 (function wireCanvasDragPan(){
-  let dragging=false, lastX=0, lastY=0;
+  // Ein Finger = verschieben, zwei Finger = zoomen (und dabei verschieben)
+  const ptrs = new Map(); let pinch = null;
+  const two = ()=>{ const v = [...ptrs.values()]; return { d: Math.hypot(v[0].x-v[1].x, v[0].y-v[1].y) || 1, mx:(v[0].x+v[1].x)/2, my:(v[0].y+v[1].y)/2 }; };
   mapCanvas.addEventListener('pointerdown', (e)=>{
-    dragging=true; lastX=e.clientX; lastY=e.clientY; mapCanvas.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    try{ mapCanvas.setPointerCapture(e.pointerId); }catch(_){}
+    if(ptrs.size === 2) pinch = two();
   });
   mapCanvas.addEventListener('pointermove', (e)=>{
-    if(!dragging) return;
+    const prev = ptrs.get(e.pointerId); if(!prev) return;
+    ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
     const dpr = window.devicePixelRatio||1;
-    mapUserOffset.x += (e.clientX-lastX)*dpr;
-    mapUserOffset.y += (e.clientY-lastY)*dpr;
-    lastX=e.clientX; lastY=e.clientY;
+    if(ptrs.size >= 2 && pinch){
+      const now = two(), r = mapCanvas.getBoundingClientRect();
+      mapUserOffset.x += (now.mx - pinch.mx)*dpr;
+      mapUserOffset.y += (now.my - pinch.my)*dpr;
+      canvasZoomAt((now.mx - r.left)*dpr, (now.my - r.top)*dpr, now.d/pinch.d);
+      pinch = now;
+    } else if(ptrs.size === 1){
+      mapUserOffset.x += (e.clientX-prev.x)*dpr;
+      mapUserOffset.y += (e.clientY-prev.y)*dpr;
+    }
   });
-  ['pointerup','pointercancel','pointerleave'].forEach(ev=>mapCanvas.addEventListener(ev, ()=>{ dragging=false; }));
+  ['pointerup','pointercancel'].forEach(ev=>mapCanvas.addEventListener(ev, (e)=>{
+    ptrs.delete(e.pointerId);
+    if(ptrs.size < 2) pinch = null;
+  }));
   mapCanvas.addEventListener('wheel', (e)=>{
     if(realMapActive()) return;
     e.preventDefault();
-    canvasZoomBy(e.deltaY < 0 ? 1.15 : 1/1.15);
+    const r = mapCanvas.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+    canvasZoomAt((e.clientX-r.left)*dpr, (e.clientY-r.top)*dpr, e.deltaY < 0 ? 1.15 : 1/1.15);
   }, {passive:false});
 })();
 document.getElementById('mapZoomIn').addEventListener('click', ()=>{
@@ -2499,7 +2565,8 @@ function ensureLeafletMap(){
     maxZoom: 19,
     attribution: '© OpenStreetMap-Mitwirkende'
   }).addTo(leafletMap);
-  llCurrentTrack = L.layerGroup().addTo(leafletMap);
+  llCurrentTrack = L.layerGroup();
+  if(showTrack) llCurrentTrack.addTo(leafletMap);
   bahnAttachLeaflet();
   redrawLeafletStatics();
   overlaySelectedIds.forEach(id=>addRunOverlayToLeaflet(id));
@@ -2768,7 +2835,7 @@ function drawOfflineMap(){
   }
 
   // Aktueller Track, farbcodiert nach Geschwindigkeit (rot = langsam … grün = schnell)
-  if(trackLog.length > 1){
+  if(showTrack && trackLog.length > 1){
     const maxSog = runMaxSog(trackLog);
     for(let i=1;i<trackLog.length;i++){
       const p0 = toCanvas(trackLog[i-1]), p1 = toCanvas(trackLog[i]);
@@ -2833,6 +2900,19 @@ setInterval(renderLoop, SAMPLE_MS);
 renderTimer();
 updateWindBtnLabel();
 
+/* ---- Gefahrene Strecke ein-/ausblenden (gilt für alle Kartenansichten; aufgezeichnet wird weiter) ---- */
+let showTrack = true;
+try{ showTrack = localStorage.getItem('segelcomp_showTrack') !== '0'; }catch(e){}
+function setShowTrack(v){
+  showTrack = v;
+  try{ localStorage.setItem('segelcomp_showTrack', v ? '1' : '0'); }catch(e){}
+  document.getElementById('trackChip').classList.toggle('active', v);
+  if(leafletMap && llCurrentTrack){ if(v) llCurrentTrack.addTo(leafletMap); else leafletMap.removeLayer(llCurrentTrack); }
+  showToast(v ? 'Gefahrene Strecke eingeblendet' : 'Gefahrene Strecke ausgeblendet – wird weiter aufgezeichnet');
+}
+document.getElementById('trackChip').classList.toggle('active', showTrack);
+document.getElementById('trackChip').addEventListener('click', ()=>setShowTrack(!showTrack));
+
 /* ---- Anleitung ---- */
 function helpInit(){
   const ov = document.getElementById('helpOverlay');
@@ -2847,6 +2927,8 @@ uhrInit();
 pocketInit();
 helpInit();
 courseViewInit();
+// Zuletzt gewählte Windquelle wiederherstellen (Internet lädt dann sofort)
+try{ const ws = localStorage.getItem('segelcomp_windSource'); if(ws && ws !== 'ping'){ const ch = document.querySelector(`[data-src="${ws}"]`); if(ch) ch.click(); } }catch(e){}
 document.getElementById('shiftResetBtn').addEventListener('click', dreherReset);
 setRecordingActive(false);
 updateLineStepLabel();

@@ -8,7 +8,7 @@
  * Kartenansicht auch offline weiter.
  */
 
-const CACHE_VERSION = 'v20';
+const CACHE_VERSION = 'v22';
 const APP_SHELL_CACHE = `segelcomp-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `segelcomp-runtime-${CACHE_VERSION}`;
 
@@ -17,6 +17,8 @@ const APP_SHELL_FILES = [
   './index.html',
   './manifest.webmanifest',
   './boote.js',
+  './polarlernen.js',
+  './replay.js',
   './bahn.js',
   './uhr.js',
   './dreher.js',

@@ -844,6 +844,10 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
         <div class="log-list" id="overstandList"><div class="panel-hint">Noch keine Warnung – wird automatisch geloggt, sobald du die Layline zur Luvtonne nach Luv überschreitest.</div></div>
       </div>
       <div class="panel">
+        <div class="panel-label">Polare lernen · Ist vs. Polare</div>
+        <div class="log-list" id="polarLernenBox"></div>
+      </div>
+      <div class="panel">
         <div class="panel-label">Gespeicherte Läufe <span id="savedRunsCount" style="color:var(--dim); font-weight:600;">(0)</span></div>
         <div class="log-list" id="savedRunsList"><div class="panel-hint">Noch keine gespeicherten Läufe – auf der Karte „Lauf speichern &amp; neu starten“ nutzen.</div></div>
         <div class="panel-hint" id="deleteAllRunsBtn" style="text-decoration:underline; cursor:pointer; color:var(--red,#E63946); margin-top:8px;">Alle gespeicherten Läufe löschen</div>
@@ -871,12 +875,14 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin=""></script>
-<script src="boote.js?v=20"></script>
+<script src="boote.js?v=22"></script>
 <script src="bahn.js?v=20"></script>
 <script src="uhr.js?v=20"></script>
 <script src="dreher.js?v=20"></script>
 <script src="tasche.js?v=20"></script>
 <script src="bahnansicht.js?v=20"></script>
+<script src="polarlernen.js?v=1"></script>
+<script src="replay.js?v=1"></script>
 <script>
 if(!window.isSecureContext){
   document.getElementById('secureWarning').style.display = 'block';
@@ -1838,7 +1844,9 @@ function pushTrackPoint(){
   const now = Date.now();
   if(now - lastTrackPush < 5000) return;
   lastTrackPush = now;
-  trackLog.push({ t: new Date().toISOString(), lat: pos.lat, lon: pos.lon, sog: filteredSog(), cog: filteredCog() });
+  const _c = filteredCog();
+  const _twa = (windRef!==null && _c!=null) ? Math.round(Math.abs(angleDiff(_c, windRef))) : null;
+  trackLog.push({ t: new Date().toISOString(), lat: pos.lat, lon: pos.lon, sog: filteredSog(), cog: _c, twa: _twa, wd: windRef!==null ? Math.round(windRef) : null, tws: _twa!=null ? Math.round(currentTWS()*10)/10 : null });
   document.getElementById('trackCount').textContent = trackLog.length;
   const mtc = document.getElementById('mapTrackCount'); if(mtc) mtc.textContent = trackLog.length;
   const mtd = document.getElementById('mapTrackDist'); if(mtd) mtd.textContent = Math.round(trackDistance(trackLog));
@@ -1899,6 +1907,7 @@ function persistSavedRuns(runs){
   }
 }
 function renderSavedRunsList(){
+  if(window.polarLernenRender) polarLernenRender();
   const runs = getSavedRuns();
   const countEl = document.getElementById('savedRunsCount');
   if(countEl) countEl.textContent = '(' + runs.length + ')';
@@ -1912,6 +1921,7 @@ function renderSavedRunsList(){
     `<div class="log-item" style="align-items:center;">
       <span>${r.name} · ${r.track.length} Pkt · ${Math.round(trackDistance(r.track))} m</span>
       <span style="display:flex; gap:6px; flex-shrink:0;">
+        <span class="ctrl-btn small ghost" data-action="replay-run" data-id="${r.id}" style="padding:5px 10px;">▶</span>
         <span class="ctrl-btn small ghost" data-action="export-run" data-id="${r.id}" style="padding:5px 10px;">GPX</span>
         <span class="ctrl-btn small ghost" data-action="delete-run" data-id="${r.id}" style="padding:5px 10px; color:var(--red, #E63946);">✕</span>
       </span>

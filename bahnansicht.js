@@ -171,6 +171,10 @@ function drawCourseView(){
       ctx.beginPath(); ctx.moveTo(p0.cx,p0.cy); ctx.lineTo(p1.cx,p1.cy); ctx.stroke();
     }
   }
+  // Trimmskala um das Boot: hängt nur an Wind und Kurs, nicht an der Tonne
+  const trim = pos ? trimState() : null;
+  const trimR = Math.max(58*dpr, Math.min(96*dpr, Math.min(W,H)*0.15));
+  if(trim) drawTrimRing(ctx, toC(pos), trimR, up, trim, dpr);
   // Tonnen
   const act = course.seq[course.act];
   if(markPos){ const c = toC(markPos); if(act==='wind'){ ctx.strokeStyle='#fff'; ctx.lineWidth=2*dpr; ctx.beginPath(); ctx.arc(c.cx,c.cy,9*dpr,0,7); ctx.stroke(); } drawMarker(ctx, c.cx, c.cy, '#FFB703', 'Luv', dpr); }
@@ -193,6 +197,7 @@ function drawCourseView(){
     ctx.beginPath(); ctx.moveTo(0,-11*dpr); ctx.lineTo(7*dpr,9*dpr); ctx.lineTo(-7*dpr,9*dpr); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
   }
+  if(trim) drawTrimPill(ctx, toC(pos), trimR, trim, dpr, H);
   // Windpfeil + Nordpfeil (oben links unter der Werkzeugleiste)
   const ox = W - 130*dpr, oy = H - 24*dpr;
   if(windRef!==null){
@@ -229,6 +234,70 @@ function drawCourseView(){
   } else if(cvLast) cvLast.handles = null;
 
   drawScaleBar(sc, dpr, W, H);
+}
+/* ---------- Trimmskala um das Boot ----------
+   Wie in der Regattakoje: ein Farbbogen um das Boot zeigt, in welchem Windwinkel
+   man gerade wie schnell ist. Er nutzt dieselbe Zonenlogik wie die Trimm-Seite
+   (classifyZone): Rot = zu dicht, Grün = Sweet Spot, Orange = zu tief usw.
+   Der Bogen liegt auf dem Bug, auf dem man segelt (Wind von Steuerbord oder
+   Backbord) und sitzt um den Soll-Winkel – am Wind um den Am-Wind-Winkel,
+   sonst um den Vorwind-Winkel. Der weiße Strich ist der aktuelle Kurs. */
+let trimRing = true, trimMode = 'up';
+try{ trimRing = localStorage.getItem('segelcomp_trimRing') !== '0'; }catch(e){}
+const TRIM_TEXT = { red:'#fff', purple:'#fff', blue:'#fff', green:'#071822', orange:'#071822', teal:'#071822' };
+
+function trimState(){
+  if(!trimRing || windRef===null || !pos) return null;
+  const crs = effectiveCourse(); if(crs===null) return null;
+  const twa = angleDiff(crs, windRef), aAbs = Math.abs(twa);
+  // Umschalten Amwind ↔ Vorwind mit Hysterese, damit der Bogen bei ~100° nicht flackert
+  if(trimMode==='up' && aAbs > 105) trimMode = 'down';
+  else if(trimMode==='down' && aAbs < 95) trimMode = 'up';
+  const ang = currentAngles();
+  return { crs, twa, aAbs, s: twa<0 ? -1 : 1, opt: trimMode==='up' ? ang.up : ang.down, zone: classifyZone(aAbs) };
+}
+function drawTrimRing(ctx, c, R2, up, st, dpr){
+  const R1 = R2*0.68;
+  const a0 = Math.max(0, st.opt-32), a1 = Math.min(180, st.opt+32);
+  const rad = b => (b - up - 90)*Math.PI/180;          // Peilung → Canvas-Winkel (Bild: oben = up)
+  const sector = (x0, x1)=>{
+    const t0 = rad(windRef + st.s*x0), t1 = rad(windRef + st.s*x1), lo = Math.min(t0,t1), hi = Math.max(t0,t1);
+    ctx.beginPath(); ctx.arc(c.cx, c.cy, R2, lo, hi); ctx.arc(c.cx, c.cy, R1, hi, lo, true); ctx.closePath();
+  };
+  ctx.save();
+  // Gleiche Zonen zu einem Stück zusammenfassen, damit keine Nähte entstehen
+  ctx.globalAlpha = 0.8;
+  let runStart = a0, runKey = classifyZone(a0+0.5).key;
+  for(let a=a0+1; a<=a1+0.001; a+=1){
+    const key = a < a1 ? classifyZone(a+0.5).key : null;
+    if(key !== runKey){
+      sector(runStart, Math.min(a, a1)); ctx.fillStyle = ZONE_COLORS[runKey]; ctx.fill();
+      runStart = a; runKey = key;
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = cvInk(0.35); ctx.lineWidth = 1*dpr;
+  sector(a0, a1); ctx.stroke();
+  // Soll-Winkel: dünner Strich quer durch den Bogen
+  const line = (b, r0, r1)=>{ const t = rad(b); ctx.beginPath(); ctx.moveTo(c.cx + Math.cos(t)*r0, c.cy + Math.sin(t)*r0); ctx.lineTo(c.cx + Math.cos(t)*r1, c.cy + Math.sin(t)*r1); ctx.stroke(); };
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = cvInk(0.9); ctx.lineWidth = 2*dpr; line(windRef + st.s*st.opt, R1 - 3*dpr, R2 + 3*dpr);
+  // Aktueller Kurs: weißer Strich mit dunklem Rand, ragt über den Bogen hinaus
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 5.5*dpr; line(st.crs, R1 - 7*dpr, R2 + 7*dpr);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.8*dpr; line(st.crs, R1 - 7*dpr, R2 + 7*dpr);
+  ctx.restore();
+}
+function drawTrimPill(ctx, c, R2, st, dpr, H){
+  const z = st.zone;
+  const txt = `${Math.round(st.aAbs)}° ${st.twa<0 ? 'STB' : 'BB'} · ${z.soll!==null ? 'Soll '+z.soll+'°' : z.pointOfSail}`;
+  ctx.save();
+  ctx.font = `700 ${11.5*dpr}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(txt).width + 18*dpr, h = 22*dpr;
+  const y = Math.min(c.cy + R2 + 16*dpr, H - 60*dpr);
+  ctx.fillStyle = ZONE_COLORS[z.key];
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(c.cx-w/2, y-h/2, w, h, 9*dpr) : ctx.rect(c.cx-w/2, y-h/2, w, h); ctx.fill();
+  ctx.fillStyle = TRIM_TEXT[z.key] || '#071822'; ctx.fillText(txt, c.cx, y + 0.5*dpr);
+  ctx.restore();
 }
 /* Text für den Navigations-Chip in der Bahnansicht */
 function courseViewChipText(t, info){
@@ -337,4 +406,18 @@ function courseViewInit(){
   wireCourseViewEditing();
   document.getElementById('courseViewChip').classList.toggle('active', courseView);
   document.getElementById('courseViewChip').addEventListener('click', ()=>setCourseView(!courseView));
+  // Schalter für die Trimmskala in der Werkzeugleiste (nur in dieser Ansicht sichtbar)
+  const bar = document.getElementById('mapToolbar');
+  if(bar){
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (trimRing ? ' active' : ''); chip.id = 'toolTrim'; chip.textContent = '🎯 Trimm';
+    chip.addEventListener('click', ()=>{
+      trimRing = !trimRing; chip.classList.toggle('active', trimRing);
+      try{ localStorage.setItem('segelcomp_trimRing', trimRing ? '1' : '0'); }catch(e){}
+    });
+    bar.appendChild(chip);
+    const sync = ()=>{ chip.style.display = courseView ? '' : 'none'; };
+    sync();
+    document.getElementById('courseViewChip').addEventListener('click', ()=>setTimeout(sync, 0));
+  }
 }

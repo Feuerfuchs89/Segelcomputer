@@ -8,7 +8,7 @@
  * Kartenansicht auch offline weiter.
  */
 
-const CACHE_VERSION = 'v18';
+const CACHE_VERSION = 'v20';
 const APP_SHELL_CACHE = `segelcomp-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `segelcomp-runtime-${CACHE_VERSION}`;
 
@@ -66,16 +66,15 @@ self.addEventListener('fetch', (event) => {
   if (/open-meteo\.com$|overpass-api\.de$/.test(url.hostname)) return;
 
   if (isAppShellRequest(url)) {
-    // App-Shell: Cache-first, damit die App sofort & offline startet.
+    // App-Shell: Netz zuerst (damit Updates sofort ankommen), Cache als Offline-Fallback.
     event.respondWith(
-      caches.match(req).then((cached) => {
-        if (cached) return cached;
-        return fetch(req).then((res) => {
+      fetch(req).then((res) => {
+        if (res && res.status === 200) {
           const copy = res.clone();
           caches.open(APP_SHELL_CACHE).then((cache) => cache.put(req, copy));
-          return res;
-        }).catch(() => cached);
-      })
+        }
+        return res;
+      }).catch(() => caches.match(req))
     );
     return;
   }

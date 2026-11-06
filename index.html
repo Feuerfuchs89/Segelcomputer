@@ -77,7 +77,7 @@ body{
 
 /* ---------- Header ---------- */
 header{
-  padding: 14px 16px 10px 16px;
+  padding: 10px 12px 8px 16px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -86,6 +86,10 @@ header{
 .brand{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: 15px; }
 .brand span{color: var(--dim); font-weight:500;}
 .status-dots{display:flex; gap:10px; align-items:center;}
+.hdr-actions{ display:flex; gap:8px; }
+.status-bar{ display:flex; align-items:center; gap:12px; padding:6px 16px 7px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.status-bar .status-label{ cursor:pointer; }
+.status-info{ margin-left:auto; font-size:11px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52%; }
 .dot{width:8px; height:8px; border-radius:50%; background:var(--line);}
 .dot.live{background: var(--green); box-shadow: 0 0 6px var(--green);}
 .dot.warn{background: var(--orange);}
@@ -93,15 +97,14 @@ header{
 
 /* ---------- Chip rows (profile / wind strength / filter) ---------- */
 .chip-row{
-  display:flex; gap:8px; padding: 9px 16px; overflow-x:auto;
-  border-bottom: 1px solid var(--line);
+  display:flex; gap:8px; padding: 7px 16px; flex-wrap:wrap;
   align-items:center;
 }
 .chip-row .row-label{ font-size:10px; color:var(--dim); font-weight:600; flex:0 0 auto; padding-right:2px;}
 .chip{
-  flex:0 0 auto; padding: 6px 12px; border-radius: 18px;
-  background: var(--panel); border: 1px solid var(--line);
-  color: var(--dim); font-size: 12.5px; font-weight:600; white-space:nowrap;
+  flex:0 0 auto; padding: 8px 14px; border-radius: 18px; min-height:36px; display:inline-flex; align-items:center;
+  background: var(--panel); border: 1px solid var(--line); cursor:pointer;
+  color: var(--dim); font-size: 13px; font-weight:600; white-space:nowrap;
 }
 .chip.active{ background: var(--amber); color: var(--ink); border-color: var(--amber); }
 
@@ -119,17 +122,28 @@ header{
   margin: -4px -10px -4px 4px; /* vergrößert die Touch-Fläche, ohne die Zeile zu sprengen */
 }
 .settings-toggle-icon.open{ transform: rotate(180deg); }
-.settings-panel{ max-height:1000px; overflow:hidden; transition: max-height 0.3s ease; }
-.settings-panel.collapsed{ max-height:0; }
+/* Einstellungen als Blatt über dem Inhalt – schiebt nichts mehr zur Seite */
+.settings-panel{ position:fixed; left:50%; top:0; width:100%; max-width:460px; transform:translate(-50%,0); max-height:88dvh; overflow-y:auto;
+  background:var(--bg); border-bottom:1px solid var(--line); border-radius:0 0 18px 18px; box-shadow:0 12px 40px rgba(0,0,0,0.55);
+  z-index:3000; transition: transform 0.25s ease, visibility 0.25s; padding-top:env(safe-area-inset-top); }
+.settings-panel.collapsed{ transform:translate(-50%,-105%); visibility:hidden; }
+#settingsBackdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:2999; display:none; }
+#settingsBackdrop.show{ display:block; }
+.sheet-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px 6px; position:sticky; top:0; background:var(--bg); z-index:1; }
+.sheet-head b{ font-size:17px; font-family:'Space Grotesk',sans-serif; }
+.sheet-sec{ font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--amber); padding:14px 16px 2px; }
+.sheet-hint{ font-size:12px; color:var(--dim); line-height:1.45; padding:2px 16px 6px; }
+.sheet-hint.warn{ color:var(--orange); }
+.sheet-box{ padding:6px 16px 8px; }
 
 /* ---------- Bootsklasse als kompakter Reiter (Select statt Chip-Reihe) ---------- */
-.select-row{ display:flex; align-items:center; gap:10px; padding: 9px 16px; border-bottom: 1px solid var(--line); }
+.select-row{ display:flex; align-items:center; gap:10px; padding: 7px 16px; }
 .select-row .row-label{ font-size:10px; color:var(--dim); font-weight:600; flex:0 0 auto; }
 .boat-select{
   flex:1; appearance:none; -webkit-appearance:none;
   background: var(--panel) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="%236F98A3"/></svg>') no-repeat right 12px center;
-  border: 1px solid var(--line); color: var(--text); font-weight:700; font-size: 13.5px;
-  padding: 8px 30px 8px 12px; border-radius: 12px;
+  border: 1px solid var(--line); color: var(--text); font-weight:700; font-size: 15px;
+  padding: 11px 30px 11px 12px; border-radius: 12px;
 }
 
 /* ---------- Main display ---------- */
@@ -230,12 +244,12 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 
 /* ---------- Bottom nav / controls ---------- */
 .tabbar{ display:flex; border-top: 1px solid var(--line); }
-.tab{ flex:1; padding: 9px 0 6px 0; text-align:center; color: var(--dim); font-size: 10px; font-weight:600; }
+.tab{ flex:1; padding: 9px 0 7px 0; text-align:center; color: var(--dim); font-size: 11px; font-weight:600; cursor:pointer; }
 .tab.active{ color: var(--amber); }
-.tab-icon{ font-size:16px; display:block; margin-bottom:2px; }
+.tab-icon{ font-size:19px; display:block; margin-bottom:2px; }
 
 .controls{ display:flex; gap:10px; padding: 10px 16px 14px 16px; }
-.ctrl-btn{ flex:1; padding: 15px 0; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-weight:700; font-size: 13.5px; text-align:center; }
+.ctrl-btn{ flex:1; padding: 15px 4px; cursor:pointer; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-weight:700; font-size: 13.5px; text-align:center; }
 .ctrl-btn.primary{ background: var(--amber); color: var(--ink); border-color: var(--amber); }
 .ctrl-btn:active{ filter: brightness(0.85); }
 
@@ -294,7 +308,8 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 #crsShift{ display:none; margin-top:8px; background:var(--orange); color:var(--ink); border-radius:10px; padding:8px 10px; font-weight:700; font-size:12.5px; cursor:pointer; }
 .nav-row{ display:flex; align-items:center; gap:8px; }
 .nav-row .ctrl-btn.small.ghost{ flex:0 0 auto; padding:12px 16px; }
-.hdr-btn{ cursor:pointer; font-size:13px; font-weight:800; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:1px 7px; }
+.hdr-btn{ cursor:pointer; font-size:17px; font-weight:800; color:var(--text); border:1px solid var(--line); border-radius:12px;
+  width:40px; height:40px; display:flex; align-items:center; justify-content:center; background:var(--panel); }
 #pocketOverlay{ position:fixed; inset:0; z-index:5000; background:#000; display:none; flex-direction:column; align-items:center; justify-content:center; gap:18px;
   touch-action:none; user-select:none; -webkit-user-select:none; }
 #pocketRing{ width:120px; height:120px; border-radius:50%; border:2px solid #222; display:flex; align-items:center; justify-content:center; color:#3a3a3a; font-size:34px; }
@@ -310,6 +325,11 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 #helpOverlay details li{ margin:3px 0; }
 #helpOverlay details ul{ padding-left:18px; margin:4px 0; }
 #helpOverlay .muted{ color:var(--dim); }
+details.fold{ padding:0 16px; }
+details.fold > summary{ padding:14px 0; font-weight:700; font-size:14px; cursor:pointer; list-style:none; display:flex; justify-content:space-between; }
+details.fold > summary::after{ content:'▾'; color:var(--dim); }
+details.fold[open] > summary::after{ content:'▴'; }
+details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-bottom:14px; }
 #uhrLog{ display:none; margin:0 16px 10px; padding:8px 10px; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
   font:11px/1.4 ui-monospace,Menlo,monospace; color:var(--dim); white-space:pre-wrap; word-break:break-all; max-height:180px; overflow:auto; }
 </style>
@@ -325,6 +345,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
   <p>Für echte SOG/COG/Position braucht der Prototyp Zugriff auf GPS und Kompass deines Handys. Ohne Freigabe läuft er im simulierten Demo-Modus.</p>
   <button id="grantBtn">Sensoren aktivieren</button>
   <div class="skip" id="skipBtn">Ohne Sensoren fortfahren (Demo)</div>
+  <p style="font-size:12.5px;">Anleitung jederzeit über <b>?</b> oben rechts.</p>
 </div>
 
 
@@ -340,18 +361,28 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
     <details open><summary>Schnellstart fürs Wasser</summary><div>
       <b>Zu Hause (mit Internet)</b>
       <ul>
-        <li>Einstellungen → <b>Bootsklasse</b> wählen.</li>
+        <li><b>⚙</b> oben → <b>Boot</b> wählen.</li>
         <li>Karte → Echtkarte auf euren See schieben → <b>🌊 See laden</b>. Das Ufer bleibt danach offline gespeichert.</li>
       </ul>
       <b>Am Steg</b>
       <ul>
         <li><b>Sensoren aktivieren</b> (GPS freigeben).</li>
         <li>Windquelle wählen: <b>Internet</b>, <b>Manuell</b> oder später auf dem Wasser <b>pingen</b>.</li>
-        <li>Bluetooth an → Einstellungen → <b>⌚ Uhr verbinden</b>.</li>
-        <li>Montage: <b>In der Tasche</b>.</li>
-        <li>Oben auf <b>🔒</b> tippen (Taschenmodus) → Handy einpacken.</li>
+        <li>Bluetooth an → <b>⚙</b> → <b>⌚ Uhr verbinden</b>.</li>
+        <li>Unten <b>🔒 Tasche</b> tippen → Handy einpacken. Die Montage stellt sich dabei automatisch auf „In der Tasche“.</li>
       </ul>
       <span class="muted">Wichtig: Nicht die Ein/Aus-Taste drücken. Ist der Bildschirm aus, hält Chrome GPS und Bluetooth an, und die Uhr bekommt nichts mehr.</span>
+    </div></details>
+
+    <details><summary>Bedienung auf einen Blick</summary><div>
+      <ul>
+        <li><b>Oben:</b> ⚙ Einstellungen · 🔒 Taschenmodus · ? Anleitung.</li>
+        <li><b>Statuszeile:</b> Punkte für GPS, Kompass, Display wach und Uhr (grün = ok). Rechts stehen Boot und aktueller Wind. Tippen auf „GPS“ schaltet GPS aus/an, auf „Display“ das Wachhalten, auf „Uhr“ verbindet die Uhr.</li>
+        <li><b>Unten links:</b> Start / Sync für den Timer, auf jeder Seite gleich.</li>
+        <li><b>Unten Mitte:</b> macht je nach Seite das Naheliegende. Der Text sagt, was passiert: Wind pingen bzw. laden bzw. eingeben, Luvtonne hier setzen, Boot-/Pin-Ende setzen, Aufzeichnen, GPX-Export.</li>
+        <li><b>Unten rechts:</b> 🔒 Tasche sperrt das Handy für die Tasche.</li>
+        <li>Zwischen den Seiten wischen oder unten die Reiter antippen. Doppeltippen auf Trimm-Feld oder Karte = Vollbild.</li>
+      </ul>
     </div></details>
 
     <details><summary>Windquelle</summary><div>
@@ -413,7 +444,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
         <li><b>↻ Nach Wind drehen:</b> dreht die Bahn um die Startlinie auf den aktuellen Wind. Bei 10° Winddrehung oder mehr erscheint ein Hinweis zum Antippen.</li>
         <li><b>＋ Tonne:</b> antippen, dann auf die Karte tippen. Tonnen (auch Startschiff, Pin und Luv) lassen sich verschieben. Eine Tonne antippen → löschen oder als nächstes Ziel.</li>
         <li><b>✥ Bahn:</b> verschiebt die ganze Bahn. Am gelben ✥ in der Bahnmitte ziehen, oder auf die Karte tippen, dann springt die Bahn dorthin. Die Ausrichtung zum Wind bleibt. Danach prüft die App, ob alle Tonnen auf dem Wasser liegen, und warnt, wenn eine an Land oder zu nah am Ufer liegt.</li>
-        <li><b>📏 Lineal:</b> Punkte antippen → Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.</li>
+        <li><b>📏 Messen:</b> Punkte antippen → Distanz, Peilung, Winkel zum Wind und Zeit laut Polare.</li>
         <li>Rote gestrichelte Linien sind die <b>Laylines</b> der aktiven Tonne. Gerundete Tonnen erkennt die App selbst und schaltet zur nächsten weiter. Das Ziel ist die Startlinie.</li>
         <li>Setzen und Messen geht nur auf der Echtkarte (🌐). Die Offline-Karte zeigt alles nur an.</li>
       </ul>
@@ -466,16 +497,20 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 <div id="app">
 
   <header>
-    <div class="brand">SEGEL<span>COMP · Proto v4</span></div>
-    <div class="status-dots">
-      <div class="status-label" id="gpsToggle" style="cursor:pointer;"><div class="dot" id="gpsDot"></div><span id="gpsToggleLabel">GPS</span></div>
-      <div class="status-label"><div class="dot" id="cmpDot"></div>CMP</div>
-      <div class="status-label" id="wakeToggle" style="cursor:pointer;"><div class="dot" id="wakeDot"></div><span>Display</span></div>
-      <div class="status-label" id="uhrHeader" style="cursor:pointer;"><div class="dot" id="uhrDot"></div><span>Uhr</span></div>
-      <div class="status-label hdr-btn" id="pocketBtn" title="Taschenmodus">🔒</div>
-      <div class="status-label hdr-btn" id="helpBtn" title="Anleitung">?</div>
+    <div class="brand">SEGEL<span>COMP</span></div>
+    <div class="hdr-actions">
+      <div class="hdr-btn" id="settingsToggle" title="Einstellungen">⚙<span id="settingsToggleIcon" hidden></span></div>
+      <div class="hdr-btn" id="pocketBtn" title="Taschenmodus">🔒</div>
+      <div class="hdr-btn" id="helpBtn" title="Anleitung">?</div>
     </div>
   </header>
+  <div class="status-bar">
+    <div class="status-label" id="gpsToggle"><div class="dot" id="gpsDot"></div><span id="gpsToggleLabel">GPS</span></div>
+    <div class="status-label"><div class="dot" id="cmpDot"></div>Kompass</div>
+    <div class="status-label" id="wakeToggle"><div class="dot" id="wakeDot"></div><span>Display</span></div>
+    <div class="status-label" id="uhrHeader"><div class="dot" id="uhrDot"></div><span>Uhr</span></div>
+    <div class="status-info" id="hdrInfo"></div>
+  </div>
   <div id="secureWarning" style="display:none; background:var(--red); color:#fff; font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
     Unsichere Verbindung (kein https) – Browser blockiert GPS/Kompass. Display-wach-halten &amp; Vollbild funktionieren evtl. auch nicht. Demo-Daten aktiv.
   </div>
@@ -483,61 +518,24 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
     Keine echten Sensordaten empfangen – Demo-Daten aktiv, bis GPS/Kompass antworten.
   </div>
 
-  <div class="settings-toggle" id="settingsToggle">
-    <span>⚙️ Einstellungen</span>
-    <span class="settings-toggle-icon" id="settingsToggleIcon">▾</span>
-  </div>
-  <div class="settings-panel" id="settingsPanel">
+  <div id="settingsBackdrop"></div>
+  <div class="settings-panel collapsed" id="settingsPanel">
+    <div class="sheet-head"><b>Einstellungen</b><div class="chip active" id="settingsClose">Fertig</div></div>
+
+    <div class="sheet-sec">Boot</div>
     <div class="select-row" id="profileRow">
-      <span class="row-label">BOOTSKLASSE</span>
       <select class="boat-select" id="profileSelect"></select>
     </div>
+
+    <div class="sheet-sec">Wind</div>
     <div class="chip-row">
-      <span class="row-label">QUELLE</span>
-      <div class="chip active" data-src="ping">Pingen</div>
-      <div class="chip" data-src="live">Internet</div>
-      <div class="chip" data-src="manual">Manuell</div>
-      <span class="row-label" style="margin-left:6px;">FILTER</span>
-      <div class="chip" data-filt="1">1s</div>
-      <div class="chip active" data-filt="2">2s</div>
-      <div class="chip" data-filt="3">3s</div>
+      <div class="chip active" data-src="ping">📍 Pingen</div>
+      <div class="chip" data-src="live">🌐 Internet</div>
+      <div class="chip" data-src="manual">✎ Manuell</div>
     </div>
-    <div class="chip-row" id="strengthRow">
-      <span class="row-label">WIND</span>
-      <div class="chip active" data-str="leicht">Leicht ~8 kn</div>
-      <div class="chip" data-str="mittel">Mittel ~14 kn</div>
-      <div class="chip" data-str="stark">Stark ~20 kn</div>
-    </div>
-    <div class="chip-row" id="themeRow">
-      <span class="row-label">ANZEIGE</span>
-      <div class="chip active" data-theme="dunkel">Dunkel</div>
-      <div class="chip" data-theme="hell">Hell</div>
-      <div class="chip" data-theme="nacht">Nacht (Rot)</div>
-    </div>
-    <div class="chip-row" id="mountRow">
-      <span class="row-label">MONTAGE</span>
-      <div class="chip active" data-mount="boot">Am Boot fest</div>
-      <div class="chip" data-mount="arm">Am Arm</div>
-      <div class="chip" data-mount="tasche">In der Tasche</div>
-    </div>
-    <div class="chip-row" id="signalRow">
-      <span class="row-label">SIGNALE</span>
-      <div class="chip active" id="vibChip">📳 Vibration</div>
-      <div class="chip active" id="audioChip">🔊 Ton</div>
-    </div>
-    <div class="chip-row" id="uhrRow">
-      <span class="row-label">UHR</span>
-      <div class="chip" id="uhrChip">⌚ Uhr verbinden</div>
-      <div class="chip" id="uhrLogChip">Protokoll</div>
-      <span class="row-label" id="uhrStatus" style="font-weight:600;">Nicht verbunden</span>
-    </div>
-    <pre id="uhrLog"></pre>
-  </div>
-  <div id="mountWarning" style="display:none; background:var(--orange); color:var(--ink); font-size:12.5px; font-weight:600; padding:8px 16px; text-align:center;">
-    Handy am Arm: Der Magnet-Kompass dreht sich mit deinem Arm und wäre unbrauchbar. Kompassrose, Wind-Zone &amp; Kurs nutzen stattdessen den GPS-Kurs (COG) – braucht etwas Fahrt, ist bei &lt;1 kn ungenau.
-  </div>
-  <div id="liveStatus" class="panel-hint" style="display:none; padding: 6px 16px; border-bottom:1px solid var(--line);"></div>
-  <div id="manualWindPanel" style="display:none; padding: 10px 16px; border-bottom:1px solid var(--line);">
+    <div class="sheet-hint" id="srcHint"></div>
+  <div id="liveStatus" class="sheet-hint" style="display:none;"></div>
+  <div id="manualWindPanel" class="sheet-box" style="display:none;">
     <div class="data-row">
       <div class="data-card">
         <div class="panel-label">Windrichtung (° · aus)</div>
@@ -557,6 +555,50 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
     <div class="panel-hint" id="manualStatus">Werte eingeben und mit „Bestätigen" übernehmen.</div>
   </div>
 
+    <div class="chip-row" id="strengthRow">
+      <span class="row-label">STÄRKE</span>
+      <div class="chip active" data-str="leicht">Leicht ~8 kn</div>
+      <div class="chip" data-str="mittel">Mittel ~14 kn</div>
+      <div class="chip" data-str="stark">Stark ~20 kn</div>
+    </div>
+
+    <div class="sheet-sec">Handy</div>
+    <div class="chip-row" id="mountRow">
+      <span class="row-label">MONTAGE</span>
+      <div class="chip active" data-mount="boot">Am Boot fest</div>
+      <div class="chip" data-mount="arm">Am Arm</div>
+      <div class="chip" data-mount="tasche">In der Tasche</div>
+    </div>
+  <div id="mountWarning" class="sheet-hint warn" style="display:none;">
+    Handy am Arm: Der Magnet-Kompass dreht sich mit deinem Arm und wäre unbrauchbar. Kompassrose, Wind-Zone &amp; Kurs nutzen stattdessen den GPS-Kurs (COG) – braucht etwas Fahrt, ist bei &lt;1 kn ungenau.
+  </div>
+    <div class="chip-row">
+      <span class="row-label">GPS-GLÄTTUNG</span>
+      <div class="chip" data-filt="1">1 s</div>
+      <div class="chip active" data-filt="2">2 s</div>
+      <div class="chip" data-filt="3">3 s</div>
+    </div>
+    <div class="chip-row" id="signalRow">
+      <span class="row-label">SIGNALE</span>
+      <div class="chip active" id="vibChip">📳 Vibration</div>
+      <div class="chip active" id="audioChip">🔊 Ton</div>
+    </div>
+    <div class="chip-row" id="themeRow">
+      <span class="row-label">ANZEIGE</span>
+      <div class="chip active" data-theme="dunkel">Dunkel</div>
+      <div class="chip" data-theme="hell">Hell (Sonne)</div>
+      <div class="chip" data-theme="nacht">Nacht (Rot)</div>
+    </div>
+
+    <div class="sheet-sec">Uhr</div>
+    <div class="chip-row" id="uhrRow">
+      <div class="chip" id="uhrChip">⌚ Uhr verbinden</div>
+      <div class="chip" id="uhrLogChip">Protokoll</div>
+    </div>
+    <div class="sheet-hint" id="uhrStatus">Nicht verbunden</div>
+    <pre id="uhrLog"></pre>
+    <div style="height:24px"></div>
+  </div>
   <main>
 
     <!-- TIMER VIEW -->
@@ -693,13 +735,13 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
 
     <!-- KARTE VIEW -->
     <div class="view" id="view-map">
-      <div class="panel" id="mapPanel" style="padding:0; overflow:hidden; flex:1; display:flex; flex-direction:column; min-height:260px;">
+      <div class="panel" id="mapPanel" style="padding:0; overflow:hidden; flex:none; display:flex; flex-direction:column; height:62dvh; min-height:320px;">
         <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--line); gap:8px; flex-wrap:wrap;">
           <span class="panel-label" style="margin:0;" id="mapModeLabel">Kurskarte</span>
           <div style="display:flex; gap:6px;">
             <div class="chip active" id="realMapChip" style="padding:5px 10px;">🌐 Echtkarte</div>
             <div class="chip active" id="windArrowsChip" style="padding:5px 10px;">💨 Wind</div>
-            <div class="chip" id="courseViewChip" style="padding:5px 10px;">🧭 Ziel oben</div>
+            <div class="chip" id="courseViewChip" style="padding:5px 10px;">🧭 Ziel oben + Lineal</div>
           </div>
         </div>
         <div id="mapStage" style="position:relative; flex:1; width:100%; overflow:hidden;">
@@ -709,9 +751,9 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
           <div id="mapCountdownOverlay">05:00</div>
           <div id="mapToolbar">
             <div class="chip" id="toolMark">＋ Tonne</div>
-            <div class="chip" id="toolRuler">📏 Lineal</div>
+            <div class="chip" id="toolRuler">📏 Messen</div>
             <div class="chip" id="toolMove">✥ Bahn</div>
-            <div class="chip" id="toolRulerClear" style="display:none;">Lineal ✕</div>
+            <div class="chip" id="toolRulerClear" style="display:none;">Messung ✕</div>
           </div>
           <div id="mapNavChip"></div>
           <div id="mapToolHint"></div>
@@ -756,6 +798,9 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
         <div class="big-metric"><span class="data-val" id="mapBiasVal">–</span><span class="data-unit" id="mapBiasUnit"> °</span></div>
         <div class="panel-hint" id="mapBiasHint">Startlinie noch nicht gesetzt.</div>
       </div>
+      <details class="panel fold" id="recFold">
+        <summary>⏺ Aufzeichnung &amp; frühere Läufe</summary>
+        <div class="fold-body">
       <div class="ctrl-btn" id="recordToggleBtn" style="text-align:center;">⏺ Aufzeichnung starten</div>
       <div class="panel-hint" id="recordStatusHint">Aufzeichnung pausiert – es werden gerade keine Trackpunkte geloggt.</div>
       <div class="data-row">
@@ -769,6 +814,8 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
       <div class="ctrl-btn primary" id="newRunBtn" style="text-align:center;">🏁 Lauf speichern &amp; neu starten</div>
       <div class="panel-hint">Speichert Track, Manöver &amp; Übersegelt-Log dieses Laufs (unter „Log“ abrufbar), pausiert danach die Aufzeichnung und beginnt einen frischen Track – Startlinie &amp; Luvtonne bleiben dabei erhalten.</div>
       <div class="panel-hint" id="resetCourseBtn" style="text-decoration:underline; cursor:pointer;">Neue Regattabahn: Startlinie &amp; Luvtonne komplett löschen</div>
+        </div>
+      </details>
     </div>
 
     <!-- LOG VIEW -->
@@ -807,7 +854,7 @@ main{ flex:1; padding: 16px 16px 6px 16px; display:flex; flex-direction:column; 
   <div class="controls">
     <div class="ctrl-btn primary" id="btnStart">Start / Sync</div>
     <div class="ctrl-btn" id="btnWind">Wind pingen</div>
-    <div class="ctrl-btn" id="btnMode">Modus</div>
+    <div class="ctrl-btn" id="btnMode">🔒 Tasche</div>
   </div>
 
 </div>
@@ -881,9 +928,10 @@ const settingsPanel = document.getElementById('settingsPanel');
 const settingsToggleIcon = document.getElementById('settingsToggleIcon');
 function setSettingsCollapsed(collapsed){
   settingsPanel.classList.toggle('collapsed', collapsed);
-  settingsToggleIcon.classList.toggle('open', !collapsed);
-  try{ localStorage.setItem('segelcomp_settingsCollapsed', collapsed ? '1' : '0'); }catch(e){}
+  document.getElementById('settingsBackdrop').classList.toggle('show', !collapsed);
 }
+document.getElementById('settingsBackdrop').addEventListener('click', ()=>setSettingsCollapsed(true));
+document.getElementById('settingsClose').addEventListener('click', ()=>setSettingsCollapsed(true));
 settingsToggle.addEventListener('click', ()=>{
   setSettingsCollapsed(!settingsPanel.classList.contains('collapsed'));
 });
@@ -892,15 +940,8 @@ settingsToggle.addEventListener('click', ()=>{
    verschobenen/falsch ausgerichteten Kartenkacheln. Nach der Transition
    Größe neu berechnen lassen (mit Timeout-Fallback, falls transitionend
    z.B. bei max-height:0 → 0 nicht feuert). */
-settingsPanel.addEventListener('transitionend', (e)=>{
-  if(e.propertyName === 'max-height') resizeMapCanvas();
-});
-settingsToggle.addEventListener('click', ()=> setTimeout(resizeMapCanvas, 320));
-(function initSettingsCollapsed(){
-  let saved = null;
-  try{ saved = localStorage.getItem('segelcomp_settingsCollapsed'); }catch(e){}
-  setSettingsCollapsed(saved === '1');
-})();
+
+setSettingsCollapsed(true); // startet immer geschlossen – ⚙ oben öffnet
 
 /* ---- Display wach halten (Screen Wake Lock API) ---- */
 function showToast(msg){
@@ -1170,11 +1211,21 @@ function manualConfirmedSummary(){
   return parts.join(' · ');
 }
 
+/* Kurze Erklärung zur gewählten Windquelle; Stärke-Chips nur beim Pingen nötig */
+function updateSrcHint(){
+  const t = { ping:'Bug in den Wind drehen und unten „📍 Wind pingen“ – oder auf beiden Bugen hoch am Wind je einmal pingen. Die Stärke unten schätzen.',
+              live:'Wind von Open-Meteo für deine Position, alle 5 Minuten neu. Ein Wettermodell – kleine Dreher misst die App selbst.',
+              manual:'Richtung und Stärke eintippen und „Bestätigen“.' }[windSource];
+  document.getElementById('srcHint').textContent = t;
+  document.getElementById('strengthRow').style.display = windSource === 'ping' ? '' : 'none';
+}
+updateSrcHint();
 document.querySelectorAll('[data-src]').forEach(chip=>{
   chip.addEventListener('click', ()=>{
     windSource = chip.dataset.src;
     chip.parentElement.querySelectorAll('[data-src]').forEach(c=>c.classList.remove('active'));
     chip.classList.add('active');
+    updateSrcHint();
 
     liveStatusEl.style.display = 'none';
     manualPanelEl.style.display = 'none';
@@ -1987,16 +2038,20 @@ function classifyZone(twaAbs){
 /* ================= Tabs & kontextabhängige Wind-Taste ================= */
 const tabs = document.querySelectorAll('.tab'), views = document.querySelectorAll('.view');
 let viewIdx = 0;
-const WIND_BTN_LABELS = { 'view-tactic':'Luvtonne pingen', 'view-start':'Linie pingen', 'view-log':'Exportieren' };
+/* Mittlere Taste: macht je nach Seite das Naheliegendste – Text sagt genau, was passiert */
 function updateWindBtnLabel(){
   const id = views[viewIdx].id;
-  let label = WIND_BTN_LABELS[id];
-  if(!label){ // view-timer / view-wind
-    label = windSource === 'live' ? 'Live aktualisieren' : (windSource === 'manual' ? 'Eingabe oben ↑' : 'Wind pingen');
-  }
-  document.getElementById('btnWind').textContent = label;
+  let label;
+  if(id === 'view-start') label = !lineBoat ? '📍 Boot-Ende setzen' : !linePin ? '📍 Pin-Ende setzen' : '📍 Linie neu setzen';
+  else if(id === 'view-tactic') label = '📍 Luvtonne hier';
+  else if(id === 'view-map') label = recordingActive ? '⏸ Aufnahme stopp' : '⏺ Aufzeichnen';
+  else if(id === 'view-log') label = '⤓ GPX-Export';
+  else label = windSource === 'live' ? '↻ Wind laden' : (windSource === 'manual' ? '✎ Wind eingeben' : '📍 Wind pingen');
+  const el = document.getElementById('btnWind');
+  if(el.textContent !== label) el.textContent = label;
 }
 function setView(idx){
+  setSettingsCollapsed(true);
   viewIdx = ((idx%views.length)+views.length)%views.length;
   tabs.forEach((t,i)=>t.classList.toggle('active', i===viewIdx));
   views.forEach((v,i)=>v.classList.toggle('active', i===viewIdx));
@@ -2032,14 +2087,15 @@ tabs.forEach((t,i)=>t.addEventListener('click', ()=>setView(i)));
 })();
 
 document.getElementById('btnStart').addEventListener('click', startStopTimer);
-document.getElementById('btnMode').addEventListener('click', ()=>setView(viewIdx+1));
+document.getElementById('btnMode').addEventListener('click', ()=>pocketEnter(false));
 document.getElementById('btnWind').addEventListener('click', ()=>{
   const id = views[viewIdx].id;
   if(id === 'view-start') pingLine();
   else if(id === 'view-tactic') pingMark();
   else if(id === 'view-log') exportGPX();
+  else if(id === 'view-map') setRecordingActive(!recordingActive);
   else if(windSource === 'live') fetchLiveWind();
-  else if(windSource === 'manual') document.getElementById('manualDirInput').focus();
+  else if(windSource === 'manual'){ setSettingsCollapsed(false); setTimeout(()=>document.getElementById('manualDirInput').focus(), 280); }
   else pingWind();
 });
 document.getElementById('exportBtn').addEventListener('click', exportGPX);
@@ -2210,6 +2266,11 @@ function renderLoop(){
     document.getElementById('appArrow').setAttribute('transform', `rotate(${relApp} 50 50)`);
   }
   bahnTick();
+  updateWindBtnLabel();
+  const hi = document.getElementById('hdrInfo');
+  const wTxt = windRef!==null ? `${Math.round(windRef)}° ${Math.round(currentTWS())} kn` : 'kein Wind';
+  const hiTxt = `${currentProfile().name} · ${wTxt}`;
+  if(hi.textContent !== hiTxt) hi.textContent = hiTxt;
 }
 function trackTackInc(){ tackCount++; document.getElementById('tackCount').textContent = tackCount; }
 function trackGybeInc(){ gybeCount++; document.getElementById('gybeCount').textContent = gybeCount; }

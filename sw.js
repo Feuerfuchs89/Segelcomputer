@@ -74,7 +74,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(APP_SHELL_CACHE).then((cache) => cache.put(req, copy));
         }
         return res;
-      }).catch(() => caches.match(req))
+      }).catch(() => caches.match(req, { ignoreSearch: true }))
     );
     return;
   }

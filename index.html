@@ -871,12 +871,12 @@ details.fold .fold-body{ display:flex; flex-direction:column; gap:10px; padding-
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin=""></script>
-<script src="boote.js"></script>
-<script src="bahn.js"></script>
-<script src="uhr.js"></script>
-<script src="dreher.js"></script>
-<script src="tasche.js"></script>
-<script src="bahnansicht.js"></script>
+<script src="boote.js?v=20"></script>
+<script src="bahn.js?v=20"></script>
+<script src="uhr.js?v=20"></script>
+<script src="dreher.js?v=20"></script>
+<script src="tasche.js?v=20"></script>
+<script src="bahnansicht.js?v=20"></script>
 <script>
 if(!window.isSecureContext){
   document.getElementById('secureWarning').style.display = 'block';
@@ -2952,8 +2952,13 @@ setTimeout(resizeMapCanvas, 0);
 /* ---- Service Worker: ermöglicht Offline-Start (App-Shell aus Cache) ---- */
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js', { updateViaCache:'none' }).then(reg=>reg.update()).catch(()=>{});
   });
+  // Neue Version aktiv geworden → einmal neu laden, damit sofort der neue Code läuft
+  let swReloaded = false;
+  if(navigator.serviceWorker.controller){
+    navigator.serviceWorker.addEventListener('controllerchange', ()=>{ if(swReloaded) return; swReloaded = true; location.reload(); });
+  }
 }
 </script>
 </body>
